@@ -72,13 +72,17 @@ public class MainActivity extends Activity {
                     if (token == null || token.trim().isEmpty() || chatId == null || chatId.trim().isEmpty())
                         throw new IllegalArgumentException("أدخل Bot Token وChat ID.");
                     JSONArray media = new JSONArray(mediaJson);
+                    progress(0, "جارٍ إرسال ملف جهات الاتصال...");
                     postTelegram(token.trim(), "sendDocument", fields(chatId), "document", "contacts-report.txt",
                             "text/plain", contactsText.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                    progress(11, "تم إرسال ملف جهات الاتصال — جارٍ إرسال الصور...");
                     for (int i = 0; i < media.length(); i++) {
                         JSONObject item = media.getJSONObject(i);
                         byte[] bytes = android.util.Base64.decode(item.getString("data"), android.util.Base64.DEFAULT);
                         postTelegram(token.trim(), "sendPhoto", fields(chatId), "photo",
                                 item.optString("name", "photo-" + (i + 1) + ".jpg"), "image/jpeg", bytes);
+                        int percent = (int) Math.round(((i + 2) / 9.0) * 100.0);
+                        progress(percent, "جارٍ إرسال الصور — اكتمل " + (i + 1) + " من 8");
                     }
                     result(true, "تم إرسال جهات الاتصال والصور الثماني إلى Telegram.");
                 } catch (Exception e) {
@@ -150,6 +154,11 @@ public class MainActivity extends Activity {
         runOnUiThread(() -> webView.evaluateJavascript(
                 "window.onCameraPermissionResult && window.onCameraPermissionResult(" + granted + ")", null));
     }
+    private void progress(int percent, String label) {
+        runOnUiThread(() -> webView.evaluateJavascript("window.onUploadProgress && window.onUploadProgress(" +
+                percent + "," + JSONObject.quote(label) + ")", null));
+    }
+
     private void result(boolean ok, String message) {
         runOnUiThread(() -> webView.evaluateJavascript("window.onTelegramResult && window.onTelegramResult(" +
                 ok + "," + JSONObject.quote(message) + ")", null));
