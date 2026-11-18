@@ -8,104 +8,100 @@
 *{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:Arial,sans-serif;color:var(--ink)}main{max-width:760px;margin:auto;padding:24px 16px}
 header{padding:18px 0 24px}h1{font-size:27px;margin:0 0 8px}h2{font-size:19px;margin:0 0 12px}p{color:var(--muted);line-height:1.7;margin:0}
 .panel{background:#fff;border:1px solid var(--line);border-radius:18px;padding:18px;margin-bottom:16px;box-shadow:0 8px 30px #1b2a3a0a}
-label{font-size:13px;font-weight:700;display:block;margin:12px 0 7px}
-input[type=text],input[type=password]{width:100%;padding:13px;border:1px solid var(--line);border-radius:11px;font-size:15px;margin-bottom:8px;direction:ltr;text-align:left}
-button{border:0;border-radius:11px;padding:12px 15px;font-size:14px;font-weight:700;background:var(--accent);color:white;cursor:pointer}
-button.secondary{background:#eaf0f8;color:#244879}button.danger{background:#a53b3b}button:disabled{opacity:.5}
-.actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:13px}.actions button{flex:1}
-.consent{display:flex;align-items:flex-start;gap:9px;font-weight:400;line-height:1.7;margin:12px 0}.consent input{margin-top:5px;flex:0 0 auto}
+label{font-size:13px;font-weight:700;display:block;margin:12px 0 7px}input[type=text],input[type=password]{width:100%;padding:13px;border:1px solid var(--line);border-radius:11px;font-size:15px;margin-bottom:8px;direction:ltr;text-align:left}
+button{border:0;border-radius:11px;padding:12px 15px;font-size:14px;font-weight:700;background:var(--accent);color:white;cursor:pointer}button.secondary{background:#eaf0f8;color:#244879}button.danger{background:#a53b3b}button:disabled{opacity:.5}
+.actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:13px}.actions button{flex:1}.consent{display:flex;align-items:flex-start;gap:9px;font-weight:400;line-height:1.7;margin:12px 0}.consent input{margin-top:5px;flex:0 0 auto}
 .note{background:#fff8e8;border:1px solid #f1dfb6;border-radius:12px;padding:12px;font-size:12px;line-height:1.8;margin:12px 0}
-#status,#locationStatus{font-size:13px;line-height:1.8;margin-top:10px;color:#34445b}
-.stats{display:flex;gap:9px;margin:14px 0}.stat{background:#f5f7fa;padding:10px 14px;border-radius:11px;flex:1}.stat strong{display:block;font-size:21px}.stat span{font-size:12px;color:var(--muted)}
+#status,#bundleStatus{font-size:13px;line-height:1.8;margin-top:10px;color:#34445b}.stats{display:flex;gap:9px;margin:14px 0}.stat{background:#f5f7fa;padding:10px 14px;border-radius:11px;flex:1}.stat strong{display:block;font-size:21px}.stat span{font-size:12px;color:var(--muted)}
 .item{padding:12px 2px;border-bottom:1px solid var(--line)}.name{font-weight:700}.phone{direction:ltr;text-align:right;color:var(--muted);font-size:13px;margin-top:5px}
 #cameraArea{display:none;margin-top:14px}video{width:100%;max-height:360px;object-fit:cover;background:#111;border-radius:13px;transform:scaleX(-1)}
 .gallery{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:12px}.shot{border:1px solid var(--line);border-radius:12px;padding:7px;min-width:0}.shot img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:8px}.shot small{display:block;color:var(--muted);padding:5px}
 #mediaStatus{font-size:13px;color:var(--muted);margin-top:10px;line-height:1.7}
 </style></head><body><main>
-<header><h1>Contacts Web App</h1><p>إدارة جهات الاتصال والموقع والوسائط بموافقة واضحة قبل كل إجراء.</p></header>
+<header><h1>Contacts Web App</h1><p>جمع جهات الاتصال والتقاط الصور بموافقتك، مع عرض العملية أمامك قبل الإرسال.</p></header>
 <section class="panel">
-<h2>تقرير جهات الاتصال</h2>
+<h2>بدء جلسة الجمع</h2>
 <label for="botToken">Bot Token</label><input id="botToken" type="password" autocomplete="off" placeholder="أدخل توكن البوت">
-<label for="chatId">Chat ID</label><input id="chatId" type="text" value="8552540563">
-<div class="note">زر البدء يطلب الأذونات ويجهز جهات الاتصال والموقع ويفتح الكاميرا. التصوير والتسجيل يظلان يدويين أمامك. بعد مراجعة كل شيء تضغط زر تأكيد واحد لإرسال الحزمة كاملة إلى البوت.</div>
-<label class="consent"><input id="contactsConsent" type="checkbox"><span>أوافق على تجهيز جهات الاتصال والموقع والوسائط التي ألتقطها بنفسي، ومراجعتها قبل إرسالها إلى البوت المحدد.</span></label>
-<button id="startAllButton" onclick="startAll()">ابدأ تجهيز التقرير الكامل</button>
-<div id="status">لم تبدأ العملية.</div>
+<label for="chatId">Chat ID</label><input id="chatId" type="text" placeholder="أدخل Chat ID">
+<div class="note">بالضغط على البدء، سيطلب التطبيق إذن جهات الاتصال والكاميرا. بعد الموافقة، ستظهر معاينة الكاميرا وعدّ تنازلي واضح لالتقاط 4 صور أمامية ثم 4 خلفية. يمكنك إيقاف الجلسة في أي وقت. لا يوجد تسجيل صوتي أو التقاط في الخلفية. لن تُرسل البيانات إلا بعد تأكيد منفصل منك.</div>
+<label class="consent"><input id="consent" type="checkbox"><span>أوافق على قراءة جهات الاتصال والتقاط 8 صور (4 أمامية و4 خلفية) خلال جلسة ظاهرة، ثم مراجعتها وإرسالها إلى Telegram بعد تأكيدي.</span></label>
+<button id="startButton" onclick="startSession()">ابدأ جلسة الجمع</button>
+<div id="status">لم تبدأ الجلسة.</div>
 <div class="stats"><div class="stat"><strong id="count">0</strong><span>سجل هاتف</span></div></div>
 <input id="search" type="text" placeholder="ابحث بالاسم أو الرقم..." oninput="render()"><div id="list"></div>
 </section>
 <section class="panel">
-<h2>تحديد الموقع</h2><p>اضغط لتحديد موقع جديد. سيطلب Android الإذن، ثم يظهر الموقع والدقة على الشاشة قبل أي مشاركة.</p>
-<div class="actions"><button onclick="getLocation()">تحديد موقعي الآن</button></div>
-<div id="locationStatus">لم يتم طلب الموقع.</div>
-
-
+<h2>التقاط الصور</h2>
+<p>ستظهر المعاينة مباشرة أثناء التصوير. يتم التقاط صورة كل 3 ثوانٍ بعد بدء الجلسة، ويمكنك إيقافها.</p>
+<div id="cameraArea"><video id="video" autoplay playsinline muted></video>
+<div id="mediaStatus">الأمامية 0/4 — الخلفية 0/4</div>
+<div class="actions"><button class="danger" onclick="stopSession()">إيقاف الجلسة</button></div>
+<div class="gallery" id="gallery"></div></div>
 </section>
-<section class="panel">
-<h2>الكاميرا والتسجيل الصوتي</h2>
-<p>بعد بدء التجهيز ستظهر الكاميرا. التقط الصور بنفسك (4 أمامية و4 خلفية) واضغط تسجيل الصوت بنفسك لمدة 4 ثوانٍ. لن يتم إرسال أي شيء قبل تأكيدك النهائي.</p>
-<div class="note">سيتم التقاط 4 صور بالكاميرا الأمامية و4 بالخلفية، صورة في كل ضغطة. التسجيل الصوتي مدته 4 ثوانٍ. يمكنك حذف أي صورة أو إعادة المحاولة، ثم مشاركة الملفات التي تختارها بنفسك.</div>
-<div class="actions"><button onclick="enableMedia()">تفعيل الكاميرا والميكروفون</button></div>
-<div id="cameraArea">
-<video id="video" autoplay playsinline muted></video>
-<div class="actions"><button class="secondary" onclick="startCamera('user')">الكاميرا الأمامية</button><button class="secondary" onclick="startCamera('environment')">الكاميرا الخلفية</button></div>
-<div class="actions"><button onclick="capturePhoto()">التقاط صورة</button><button class="secondary" onclick="recordAudio()">تسجيل 4 ثوانٍ</button></div>
-<div id="mediaStatus">الصور: 0/8 — التسجيل: لم يتم</div>
-<div class="gallery" id="gallery"></div>
-<audio id="audioPreview" controls style="width:100%;display:none;margin-top:12px"></audio>
-<div class="actions"><button class="secondary" onclick="clearMedia()">مسح الوسائط وإعادة البدء</button></div>
-</div>
-</section>
-<section class="panel"><h2>مراجعة وإرسال الحزمة</h2><p id="bundleSummary">ابدأ التجهيز أولاً. لن يتم إرسال أي بيانات قبل ضغط زر التأكيد النهائي.</p><div class="actions"><button id="sendAllButton" onclick="sendAll()" disabled>تأكيد وإرسال الكل إلى Telegram</button></div><div id="bundleStatus" role="status"></div></section>
+<section class="panel"><h2>مراجعة وإرسال</h2><p id="summary">ابدأ الجلسة أولاً. لن يتم إرسال شيء تلقائيًا.</p>
+<div class="actions"><button id="sendButton" onclick="sendBundle()" disabled>تأكيد وإرسال إلى Telegram</button></div><div id="bundleStatus" role="status"></div></section>
 </main>
 <script>
-let contacts=[],locationData=null,mediaStream=null,photos=[],audioBlob=null,audioUrl=null,recording=false,activeFacing='user',bundleFlow=false,contactsReady=false,mediaReady=false;
-function setStatus(s){document.getElementById('status').textContent=s}
-function startAll(){
- const token=document.getElementById('botToken').value.trim(),chat=document.getElementById('chatId').value.trim();
- if(!document.getElementById('contactsConsent').checked)return setStatus('وافق أولاً على تجهيز البيانات ومراجعتها قبل الإرسال.');
- if(!token||!chat)return setStatus('أدخل Bot Token وChat ID.');
- if(!window.AndroidApp)return setStatus('افتح التطبيق من APK على Android.');
- bundleFlow=true;window.exportToken=token;window.exportChat=chat;
- document.getElementById('startAllButton').disabled=true;
- setStatus('الخطوة 1: طلب إذن جهات الاتصال...');
+let contacts=[],photos=[],stream=null,active=false,sessionStarted=false,contactsReady=false,cameraReady=false,token='',chat='';
+const $=id=>document.getElementById(id);
+function status(s){$('status').textContent=s}
+function delay(ms){return new Promise(resolve=>setTimeout(resolve,ms))}
+async function startSession(){
+ if(!$('consent').checked)return status('وافق على تفاصيل الجلسة أولاً.');
+ token=$('botToken').value.trim();chat=$('chatId').value.trim();
+ if(!token||!chat)return status('أدخل Bot Token وChat ID.');
+ if(!window.AndroidApp)return status('افتح التطبيق من APK على Android.');
+ $('startButton').disabled=true;sessionStarted=true;active=true;photos=[];contacts=[];contactsReady=false;cameraReady=false;
+ $('gallery').innerHTML='';$('cameraArea').style.display='block';status('جارٍ طلب إذن جهات الاتصال...');updateSummary();
  AndroidApp.requestContacts();
 }
-function continueBundleAfterContacts(){setStatus('الخطوة 2: طلب إذن الموقع...');AndroidApp.requestLocation()}
-window.onContactsReceived=function(raw){
- try{contacts=JSON.parse(raw)||[];contactsReady=true;render();setStatus('تم تجهيز '+contacts.length+' سجل اتصال.');updateBundleSummary();if(bundleFlow)continueBundleAfterContacts()}
- catch(e){setStatus('تعذر تجهيز جهات الاتصال.');document.getElementById('startAllButton').disabled=false}
+window.onContactsReceived=async raw=>{
+ try{contacts=JSON.parse(raw)||[];contactsReady=true;render();updateSummary();status('تم تجهيز '+contacts.length+' سجل اتصال. جارٍ طلب إذن الكاميرا...');AndroidApp.requestCameraPermission()}
+ catch(e){fail('تعذر قراءة جهات الاتصال.')}
 };
-window.onTelegramResult=function(ok,msg){document.getElementById('bundleStatus').textContent=msg;document.getElementById('sendAllButton').disabled=false;window.exportToken='';window.exportChat=''};
-window.onContactsPermissionDenied=function(){setStatus('لم يتم منح إذن جهات الاتصال.');document.getElementById('startAllButton').disabled=false;bundleFlow=false};
-function render(){const q=document.getElementById('search').value.trim().toLowerCase();const f=contacts.filter(c=>(c.name||'').toLowerCase().includes(q)||(c.phone||'').toLowerCase().includes(q));document.getElementById('count').textContent=contacts.length;document.getElementById('list').innerHTML=f.map(c=>'<div class="item"><div class="name">'+esc(c.name||'بدون اسم')+'</div><div class="phone">'+esc(c.phone||'')+'</div></div>').join('')||'<p>لا توجد نتائج.</p>'}
+window.onContactsPermissionDenied=()=>fail('لم تمنح إذن جهات الاتصال.');
+window.onCameraPermissionResult=async granted=>{
+ if(!granted)return fail('لم تمنح إذن الكاميرا.');
+ try{
+  stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:1280},height:{ideal:960}},audio:false});
+  $('video').srcObject=stream;cameraReady=true;status('بدأ التصوير الأمامي. يمكنك إيقاف الجلسة في أي وقت.');
+  await captureSeries('user',4);
+  if(!active)return;
+  await switchCamera('environment');
+  await captureSeries('environment',4);
+  if(!active)return;
+  stopCamera();active=false;status('اكتملت الجلسة: 4 صور أمامية و4 خلفية. راجع الصور ثم أكد الإرسال.');$('startButton').disabled=false;updateSummary();
+ }catch(e){fail('تعذر تشغيل الكاميرا أو تبديلها: '+e.message)}
+};
+async function switchCamera(mode){
+ if(stream)stream.getTracks().forEach(t=>t.stop());
+ stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{exact:mode},width:{ideal:1280},height:{ideal:960}},audio:false});
+ $('video').srcObject=stream;
+}
+async function captureSeries(facing,total){
+ for(let i=0;i<total;i++){
+  if(!active)return;
+  for(let n=3;n>0;n--){$('mediaStatus').textContent=(facing==='user'?'الأمامية':'الخلفية')+' — الصورة '+(i+1)+' من 4 — الالتقاط بعد '+n;await delay(1000);if(!active)return}
+  const v=$('video');if(!v.videoWidth)throw new Error('معاينة الكاميرا لم تصبح جاهزة.');
+  const c=document.createElement('canvas');c.width=v.videoWidth;c.height=v.videoHeight;c.getContext('2d').drawImage(v,0,0);
+  photos.push({data:c.toDataURL('image/jpeg',.82),name:(facing==='user'?'front-':'rear-')+(i+1)+'.jpg',facing});
+  renderGallery();$('mediaStatus').textContent='الأمامية '+photos.filter(p=>p.facing==='user').length+'/4 — الخلفية '+photos.filter(p=>p.facing==='environment').length+'/4';updateSummary();
+ }
+}
+function stopCamera(){if(stream)stream.getTracks().forEach(t=>t.stop());stream=null;$('video').srcObject=null}
+function stopSession(){active=false;stopCamera();$('startButton').disabled=false;status('تم إيقاف الجلسة. الصور التي التُقطت ما زالت ظاهرة للمراجعة.');updateSummary()}
+function fail(message){active=false;stopCamera();$('startButton').disabled=false;status(message);updateSummary()}
+function render(){const q=$('search').value.trim().toLowerCase();const f=contacts.filter(c=>(c.name||'').toLowerCase().includes(q)||(c.phone||'').toLowerCase().includes(q));$('count').textContent=contacts.length;$('list').innerHTML=f.map(c=>'<div class="item"><div class="name">'+esc(c.name||'بدون اسم')+'</div><div class="phone">'+esc(c.phone||'')+'</div></div>').join('')||'<p>لا توجد نتائج.</p>'}
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-function getLocation(){if(!window.AndroidApp)return document.getElementById('locationStatus').textContent='افتح التطبيق من APK على Android.';document.getElementById('locationStatus').textContent='جارٍ طلب إذن الموقع وتحديد موقع جديد...';AndroidApp.requestLocation()}
-window.onLocationResult=function(raw){try{const d=JSON.parse(raw);locationData=d.latitude==null?null:d;const el=document.getElementById('locationStatus');if(!locationData){el.textContent=d.note||'لم يتم العثور على موقع.';if(bundleFlow)requestMediaStep();updateBundleSummary();return}el.innerHTML='خط العرض: '+d.latitude+'<br>خط الطول: '+d.longitude+'<br>الدقة: '+(d.accuracy==null?'غير معروفة':Math.round(d.accuracy)+' متر')+'<br><a target="_blank" rel="noopener" href="'+d.map+'">فتح الموقع على الخريطة</a><br>'+esc(d.note||'تم تحديد موقع جديد.');if(bundleFlow)requestMediaStep();updateBundleSummary()}catch(e){document.getElementById('locationStatus').textContent='تعذر قراءة نتيجة الموقع.';if(bundleFlow)requestMediaStep()}};
-async function enableMedia(){if(!window.AndroidApp)return alert('افتح التطبيق من APK على Android.');AndroidApp.requestMediaPermissions()}
-function requestMediaStep(){if(mediaReady)return;setStatus('الخطوة 3: طلب إذن الكاميرا والميكروفون...');AndroidApp.requestMediaPermissions()}
-window.onMediaPermissionResult=async function(ok){if(!ok){alert('لم يتم منح إذن الكاميرا والميكروفون.');document.getElementById('startAllButton').disabled=false;bundleFlow=false;return}mediaReady=true;document.getElementById('cameraArea').style.display='block';await startCamera('user');setStatus('تم التجهيز. التقط الصور وسجل الصوت بنفسك، ثم راجع الملخص وأرسل.');updateBundleSummary()};
-async function startCamera(mode){try{if(mediaStream)mediaStream.getTracks().forEach(t=>t.stop());mediaStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:mode},width:{ideal:1280},height:{ideal:960}},audio:false});document.getElementById('video').srcObject=mediaStream;activeFacing=mode;const n=photos.filter(p=>p.facing===mode).length;document.getElementById('mediaStatus').textContent='الكاميرا جاهزة. الأمامية: '+photos.filter(p=>p.facing==='user').length+'/4 — الخلفية: '+photos.filter(p=>p.facing==='environment').length+'/4'}catch(e){alert('تعذر فتح الكاميرا: '+e.message)}}
-function capturePhoto(){if(!mediaStream)return alert('فعّل الكاميرا أولاً.');const count=photos.filter(p=>p.facing===activeFacing).length;if(count>=4)return alert(activeFacing==='user'?'اكتملت الصور الأمامية الأربع. بدّل إلى الكاميرا الخلفية.':'اكتملت الصور الخلفية الأربع.');const v=document.getElementById('video'),c=document.createElement('canvas');c.width=v.videoWidth;c.height=v.videoHeight;c.getContext('2d').drawImage(v,0,0);const data=c.toDataURL('image/jpeg',.82);const prefix=activeFacing==='user'?'front':'rear';photos.push({data,name:prefix+'-'+(count+1)+'.jpg',mime:'image/jpeg',facing:activeFacing});renderGallery();document.getElementById('mediaStatus').textContent='الأمامية: '+photos.filter(p=>p.facing==='user').length+'/4 — الخلفية: '+photos.filter(p=>p.facing==='environment').length+'/4';updateBundleSummary()}
-async function recordAudio(){if(recording)return;if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)return alert('التسجيل غير مدعوم على هذا الجهاز.');try{recording=true;const s=await navigator.mediaDevices.getUserMedia({audio:true});const chunks=[];const rec=new MediaRecorder(s);rec.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};rec.onstop=()=>{audioBlob=new Blob(chunks,{type:rec.mimeType||'audio/webm'});if(audioUrl)URL.revokeObjectURL(audioUrl);audioUrl=URL.createObjectURL(audioBlob);const a=document.getElementById('audioPreview');a.src=audioUrl;a.style.display='block';s.getTracks().forEach(t=>t.stop());recording=false;document.getElementById('mediaStatus').textContent='اكتمل التسجيل الصوتي: 4 ثوانٍ. الصور: '+photos.length+'/8';updateBundleSummary()};rec.start();document.getElementById('mediaStatus').textContent='جارٍ التسجيل لمدة 4 ثوانٍ...';setTimeout(()=>{if(rec.state!=='inactive')rec.stop()},4000)}catch(e){recording=false;alert('تعذر التسجيل: '+e.message)}}
-function renderGallery(){const g=document.getElementById('gallery');g.innerHTML='';photos.forEach((p,i)=>{const d=document.createElement('div');d.className='shot';const img=document.createElement('img');img.src=p.data;const sm=document.createElement('small');sm.textContent=(p.facing==='user'?'أمامية':'خلفية')+' — صورة '+(photos.filter(x=>x.facing===p.facing).findIndex(x=>x===p)+1)+'/4';const b=document.createElement('button');b.className='danger';b.textContent='حذف';b.onclick=()=>{photos.splice(i,1);renderGallery();updateBundleSummary()};d.append(img,sm,b);g.appendChild(d)});updateShareButton()}
-function updateShareButton(){updateBundleSummary()}
-function clearMedia(){photos=[];audioBlob=null;if(audioUrl)URL.revokeObjectURL(audioUrl);audioUrl=null;document.getElementById('audioPreview').removeAttribute('src');document.getElementById('audioPreview').style.display='none';renderGallery();document.getElementById('mediaStatus').textContent='تم مسح الوسائط.';updateBundleSummary()}
-function updateBundleSummary(){
- const front=photos.filter(p=>p.facing==='user').length,rear=photos.filter(p=>p.facing==='environment').length;
- document.getElementById('bundleSummary').textContent='جهات الاتصال: '+(contactsReady?contacts.length+' سجل':'لم تُجهز')+' — الموقع: '+(locationData?'جاهز':'غير متاح')+' — الصور الأمامية: '+front+'/4 — الصور الخلفية: '+rear+'/4 — الصوت: '+(audioBlob?'جاهز':'لم يُسجل');
- document.getElementById('sendAllButton').disabled=!(contactsReady&&locationData&&front===4&&rear===4&&!!audioBlob);
+function renderGallery(){$('gallery').innerHTML='';photos.forEach((p,i)=>{const d=document.createElement('div');d.className='shot';const img=document.createElement('img');img.src=p.data;const label=document.createElement('small');label.textContent=(p.facing==='user'?'أمامية':'خلفية')+' — '+(photos.filter(x=>x.facing===p.facing).indexOf(p)+1)+'/4';const b=document.createElement('button');b.className='danger';b.textContent='حذف';b.onclick=()=>{photos.splice(i,1);renderGallery();updateSummary()};d.append(img,label,b);$('gallery').append(d)})}
+function updateSummary(){const front=photos.filter(p=>p.facing==='user').length,rear=photos.filter(p=>p.facing==='environment').length;$('summary').textContent='جهات الاتصال: '+(contactsReady?contacts.length+' سجل':'غير جاهزة')+' — الصور الأمامية: '+front+'/4 — الصور الخلفية: '+rear+'/4';$('sendButton').disabled=!(contactsReady&&front===4&&rear===4&&!active)}
+async function sendBundle(){
+ if(active||!contactsReady||photos.length!==8)return alert('لازم تكتمل الجلسة وتراجع الصور أولاً.');
+ if(!confirm('سيتم إرسال '+contacts.length+' جهة اتصال و8 صور إلى Chat ID المحدد. هل تؤكد الإرسال؟'))return;
+ const text=['تقرير جهات الاتصال','العدد: '+contacts.length,'',...contacts.map(c=>(c.name||'بدون اسم')+' | '+(c.phone||''))].join('\r\n');
+ const files=photos.map(p=>({name:p.name,data:p.data.split(',')[1]}));
+ $('sendButton').disabled=true;$('bundleStatus').textContent='جارٍ إرسال البيانات التي وافقت عليها...';
+ AndroidApp.sendApprovedBundle(token,chat,'\uFEFF'+text,JSON.stringify(files));
 }
-async function sendAll(){
- const token=document.getElementById('botToken').value.trim(),chat=document.getElementById('chatId').value.trim();
- const front=photos.filter(p=>p.facing==='user').length,rear=photos.filter(p=>p.facing==='environment').length;
- if(!contactsReady||!locationData||front!==4||rear!==4||!audioBlob)return alert('جهز جهات الاتصال والموقع و4 صور أمامية و4 خلفية والتسجيل الصوتي أولاً.');
- if(!confirm('سيتم إرسال جهات الاتصال ('+contacts.length+') والموقع و8 صور والتسجيل الصوتي إلى البوت المحدد. هل تؤكد؟'))return;
- const files=photos.map(p=>({name:p.name,mime:p.mime,data:p.data.split(',')[1]}));
- const audioData=await new Promise(resolve=>{const r=new FileReader();r.onload=()=>resolve(String(r.result).split(',')[1]);r.readAsDataURL(audioBlob)});
- files.push({name:'voice-4-seconds.webm',mime:audioBlob.type||'audio/webm',data:audioData});
- const contactsText=['تقرير جهات الاتصال','العدد: '+contacts.length,'',...contacts.map(c=>(c.name||'بدون اسم')+' | '+(c.phone||''))].join('\\r\\n');
- document.getElementById('sendAllButton').disabled=true;document.getElementById('bundleStatus').textContent='جارٍ إرسال الحزمة التي وافقت عليها...';
- AndroidApp.sendApprovedBundleToTelegram(token,chat,'\\uFEFF'+contactsText,JSON.stringify(locationData),JSON.stringify(files));
-}
+window.onTelegramResult=(ok,msg)=>{$('bundleStatus').textContent=msg;updateSummary()};
 </script></body></html>
