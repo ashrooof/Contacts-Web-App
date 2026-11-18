@@ -14,6 +14,15 @@ import android.webkit.WebViewClient;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
+
 public class MainActivity extends Activity {
     private static final int CONTACTS_PERMISSION_REQUEST = 41;
     private WebView webView;
@@ -47,6 +56,56 @@ public class MainActivity extends Activity {
                     );
                 }
             });
+        }
+
+        @JavascriptInterface
+        public void sendContactsToTelegram(String botToken, String chatId, String textFile) {
+            new Thread(() -> {
+                HttpURLConnection connection = null;
+                try {
+                    if (botToken == null || botToken.trim().isEmpty()
+                            || chatId == null || chatId.trim().isEmpty()) {
+                        throw new IllegalArgumentException("أدخل توكن البوت وChat ID أولاً.");
+                    }
+
+                    String boundary = "----ContactsApp" + System.currentTimeMillis();
+                    URL url = new URL("https://api.telegram.org/bot"
+                            + botToken.trim() + "/sendDocument");
+                    connection = (HttpURLConnection) url.openConnection();
+                    connection.setRequestMethod("POST");
+                    connection.setDoOutput(true);
+                    connection.setConnectTimeout(15000);
+                    connection.setReadTimeout(20000);
+                    connection.setRequestProperty(
+                            "Content-Type", "multipart/form-data; boundary=" + boundary);
+
+                    try (OutputStream out = connection.getOutputStream()) {
+                        writeField(out, boundary, "chat_id", chatId.trim());
+                        writeBytes(out, "--" + boundary + "\r\n"
+                                + "Content-Disposition: form-data; name=\"document\"; filename=\"contacts.txt\"\r\n"
+                                + "Content-Type: text/plain; charset=UTF-8\r\n\r\n");
+                        out.write(textFile.getBytes(StandardCharsets.UTF_8));
+                        writeBytes(out, "\r\n--" + boundary + "--\r\n");
+                        out.flush();
+                    }
+
+                    int code = connection.getResponseCode();
+                    InputStream stream = (code >= 200 && code < 300)
+                            ? connection.getInputStream() : connection.getErrorStream();
+                    String response = readAll(stream);
+                    JSONObject json = new JSONObject(response);
+                    boolean ok = json.optBoolean("ok", false);
+                    String message = ok ? "تم إرسال ملف جهات الاتصال إلى البوت بنجاح."
+                            : json.optString("description", "فشل Telegram في استقبال الملف.");
+                    notifyTelegramResult(ok, message);
+                } catch (Exception e) {
+                    String message = e.getMessage() == null
+                            ? "تعذر الاتصال بتليجرام." : e.getMessage();
+                    notifyTelegramResult(false, message);
+                } finally {
+                    if (connection != null) connection.disconnect();
+                }
+            }).start();
         }
     }
 
@@ -83,6 +142,34 @@ public class MainActivity extends Activity {
         String payload = contacts.toString();
         webView.evaluateJavascript(
             "window.onContactsReceived(" + JSONObject.quote(payload) + ");", null);
+    }
+
+    private void notifyTelegramResult(boolean ok, String message) {
+        runOnUiThread(() -> webView.evaluateJavascript(
+                "window.onTelegramResult("
+                        + ok + "," + JSONObject.quote(message) + ");", null));
+    }
+
+    private static void writeField(OutputStream out, String boundary,
+                                   String name, String value) throws Exception {
+        writeBytes(out, "--" + boundary + "\r\n"
+                + "Content-Disposition: form-data; name=\"" + name + "\"\r\n\r\n"
+                + value + "\r\n");
+    }
+
+    private static void writeBytes(OutputStream out, String value) throws Exception {
+        out.write(value.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private static String readAll(InputStream stream) throws Exception {
+        if (stream == null) return "";
+        StringBuilder result = new StringBuilder();
+        try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(stream, StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = reader.readLine()) != null) result.append(line);
+        }
+        return result.toString();
     }
 
     @Override
