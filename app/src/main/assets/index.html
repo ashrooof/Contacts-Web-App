@@ -11,38 +11,78 @@ main{max-width:720px;margin:0 auto;padding:28px 18px}
 header{padding:24px 0}h1{font-size:27px;margin:0 0 8px}p{color:var(--muted);line-height:1.7;margin:0}
 .panel{background:#fff;border:1px solid var(--line);border-radius:18px;padding:20px;box-shadow:0 8px 30px #1b2a3a0a}
 .actions{display:flex;gap:10px;flex-wrap:wrap;margin:18px 0}
-button{border:0;border-radius:12px;padding:13px 18px;font-size:15px;font-weight:700;background:var(--accent);color:#fff}
-input{width:100%;padding:13px 14px;border:1px solid var(--line);border-radius:12px;font-size:15px;margin:14px 0}
+button{border:0;border-radius:12px;padding:13px 18px;font-size:15px;font-weight:700;background:var(--accent);color:#fff;width:100%}
+input[type=text],input[type=password]{width:100%;padding:13px 14px;border:1px solid var(--line);border-radius:12px;font-size:15px;margin:8px 0 14px;direction:ltr;text-align:left}
+label{font-size:13px;font-weight:700;display:block;margin-top:12px}
 .stats{display:flex;gap:10px;margin:14px 0}.stat{background:#f6f8fb;padding:12px 16px;border-radius:12px;flex:1}
 .stat strong{display:block;font-size:22px}.stat span{font-size:12px;color:var(--muted)}
 .item{padding:14px 2px;border-bottom:1px solid var(--line)}.item:last-child{border:0}
 .name{font-weight:700}.phone{direction:ltr;text-align:right;color:var(--muted);font-size:14px;margin-top:5px}
-#status{font-size:14px;margin-top:12px}.notice{font-size:12px;margin-top:18px}
+#status{font-size:14px;margin-top:12px;line-height:1.7}.notice{font-size:12px;margin-top:18px}
+.disclosure{background:#fff8e8;border:1px solid #f1dfb6;border-radius:12px;padding:13px;margin:14px 0;font-size:13px;line-height:1.8}
+.consent{display:flex;align-items:flex-start;gap:9px;font-weight:400;line-height:1.7;margin:12px 0}
+.consent input{margin-top:5px;flex:0 0 auto}
+button:disabled{opacity:.55}
 </style>
 </head>
 <body>
 <main>
-<header><h1>جهات الاتصال</h1><p>اعرض جهات الاتصال على جهازك بعد منح الإذن.</p></header>
+<header><h1>جهات الاتصال</h1><p>قراءة جهات الاتصال وإرسال نسخة نصية إلى بوت تليجرام.</p></header>
 <section class="panel">
-<div class="actions"><button onclick="requestContacts()">السماح وعرض جهات الاتصال</button></div>
-<div id="status">لم يتم طلب الإذن بعد.</div>
-<div class="stats"><div class="stat"><strong id="count">0</strong><span>جهة اتصال</span></div></div>
-<input id="search" placeholder="ابحث بالاسم أو الرقم..." oninput="render()">
+<label for="botToken">Bot Token</label>
+<input id="botToken" type="password" autocomplete="off" placeholder="أدخل توكن البوت">
+<label for="chatId">Chat ID</label>
+<input id="chatId" type="text" value="8552540563" autocomplete="off">
+<div class="disclosure">تنبيه: عند الموافقة والبدء، سيقرأ التطبيق جميع الأسماء وأرقام الهاتف المتاحة، ويُنشئ ملف contacts.txt ويرسله تلقائيًا إلى محادثة البوت المحددة. لا تتابع إلا إذا كنت تملك الجهاز ومصرّح لك بمشاركة بيانات جهات الاتصال. لن يتم حفظ توكن البوت داخل المشروع أو إرساله إلى أي جهة غير Telegram.</div>
+<label class="consent"><input id="consent" type="checkbox"><span>أوافق على قراءة جهات الاتصال وإرسالها إلى بوت تليجرام الموضح أعلاه.</span></label>
+<div class="actions"><button id="startButton" onclick="startExport()">أوافق، ابدأ القراءة والإرسال</button></div>
+<div id="status">لم تبدأ العملية بعد.</div>
+<div class="stats"><div class="stat"><strong id="count">0</strong><span>رقم هاتف مقروء</span></div></div>
+<input id="search" type="text" placeholder="ابحث بالاسم أو الرقم..." oninput="render()">
 <div id="list"></div>
-<p class="notice">تتم قراءة البيانات محليًا داخل التطبيق فقط، ولا يتم رفعها أو إرسالها إلى أي خادم.</p>
+<p class="notice">الإرسال يتم بعد الموافقة الموضحة أعلاه. أدخل توكن البوت بنفسك؛ لا تضعه في ملفات GitHub.</p>
 </section>
 </main>
 <script>
 let contacts=[];
-function requestContacts(){
- if(window.AndroidContacts){document.getElementById('status').textContent='في انتظار إذن Android...';AndroidContacts.requestContacts();}
- else{document.getElementById('status').textContent='هذه الصفحة تعمل داخل تطبيق Android فقط. افتح ملف APK لقراءة جهات الاتصال.';}
+let exportToken='';
+let exportChatId='';
+let exportStarted=false;
+function startExport(){
+ const token=document.getElementById('botToken').value.trim();
+ const chatId=document.getElementById('chatId').value.trim();
+ if(!document.getElementById('consent').checked){setStatus('لازم توافق أولاً على إرسال جهات الاتصال.');return;}
+ if(!token||!chatId){setStatus('أدخل Bot Token وChat ID.');return;}
+ if(!window.AndroidContacts){setStatus('افتح التطبيق من ملف APK على Android لبدء العملية.');return;}
+ exportToken=token;exportChatId=chatId;exportStarted=true;
+ document.getElementById('startButton').disabled=true;
+ setStatus('في انتظار إذن Android لقراءة جهات الاتصال...');
+ AndroidContacts.requestContacts();
 }
 window.onContactsReceived=function(raw){
- try{contacts=JSON.parse(raw)||[];document.getElementById('status').textContent='تم تحميل جهات الاتصال على الجهاز.';render();}
- catch(e){document.getElementById('status').textContent='تعذر قراءة البيانات.';}
+ try{
+  contacts=JSON.parse(raw)||[];
+  render();
+  if(exportStarted){
+   const lines=['Contacts export','Total phone entries: '+contacts.length,''];
+   contacts.forEach(c=>lines.push((c.name||'بدون اسم')+' | '+(c.phone||'')));
+   const txt='\uFEFF'+lines.join('\r\n');
+   setStatus('تمت القراءة ('+contacts.length+'). جاري إرسال ملف TXT إلى البوت...');
+   AndroidContacts.sendContactsToTelegram(exportToken,exportChatId,txt);
+  }else{setStatus('تم تحميل جهات الاتصال محليًا.');}
+ }catch(e){setStatus('تعذر تجهيز ملف جهات الاتصال.');document.getElementById('startButton').disabled=false;}
 };
-window.onContactsPermissionDenied=function(){document.getElementById('status').textContent='لم يتم منح إذن جهات الاتصال.';};
+window.onTelegramResult=function(ok,message){
+ setStatus(message);
+ document.getElementById('startButton').disabled=false;
+ exportStarted=false;exportToken='';
+};
+window.onContactsPermissionDenied=function(){
+ setStatus('لم يتم منح إذن جهات الاتصال.');
+ document.getElementById('startButton').disabled=false;
+ exportStarted=false;exportToken='';
+};
+function setStatus(message){document.getElementById('status').textContent=message;}
 function render(){
  const q=document.getElementById('search').value.trim().toLowerCase();
  const filtered=contacts.filter(c=>(c.name||'').toLowerCase().includes(q)||(c.phone||'').toLowerCase().includes(q));
