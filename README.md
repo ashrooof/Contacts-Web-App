@@ -1,6 +1,8 @@
 # Contacts Web App
 
-A lightweight Android WebView demo that requests the user's explicit `READ_CONTACTS` permission and displays contacts locally. Contact data is not uploaded or transmitted. The web interface is bundled in the Android app; GitHub Pages alone cannot read the device address book.
+An Android WebView demo that reads contacts only after Android's runtime permission is granted. The user must also explicitly agree in the app before contact names and phone numbers are packaged into `contacts.txt` and sent to the Telegram bot/chat configured by the user.
+
+The bot token is entered at runtime and is not committed to this repository. Do not hardcode bot tokens in source code or APKs.
 
 ## Build
 
