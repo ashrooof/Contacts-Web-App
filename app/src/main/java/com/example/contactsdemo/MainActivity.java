@@ -148,7 +148,7 @@ public class MainActivity extends Activity {
                         String mime = item.optString("mime", "application/octet-stream");
                         String name = item.optString("name", "media-" + i);
                         byte[] bytes = Base64.decode(item.getString("data"), Base64.DEFAULT);
-                        String method = mime.startsWith("image/") ? "sendPhoto" : (mime.startsWith("audio/") ? "sendAudio" : "sendDocument");
+                        String method = mime.startsWith("image/") ? "sendPhoto" : ((mime.equals("audio/mpeg") || mime.equals("audio/mp4")) ? "sendAudio" : "sendDocument");
                         String field = method.equals("sendPhoto") ? "photo" : (method.equals("sendAudio") ? "audio" : "document");
                         java.util.HashMap<String,String> fields = new java.util.HashMap<>(); fields.put("chat_id", chat);
                         postTelegram(token, method, fields, field, name, mime, bytes);
