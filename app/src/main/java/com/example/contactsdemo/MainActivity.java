@@ -128,6 +128,38 @@ public class MainActivity extends Activity {
             }).start();
         }
 
+
+        @JavascriptInterface public void sendApprovedBundleToTelegram(String botToken, String chatId, String contactsText, String locationJson, String mediaJson) {
+            new Thread(() -> {
+                try {
+                    if (botToken == null || botToken.trim().isEmpty() || chatId == null || chatId.trim().isEmpty())
+                        throw new IllegalArgumentException("أدخل توكن البوت وChat ID أولاً.");
+                    String token = botToken.trim(), chat = chatId.trim();
+                    java.util.HashMap<String,String> contactFields = new java.util.HashMap<>(); contactFields.put("chat_id", chat);
+                    postTelegram(token, "sendDocument", contactFields, "document", "contacts-report.txt", "text/plain", contactsText.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                    JSONObject loc = new JSONObject(locationJson);
+                    java.util.HashMap<String,String> locationFields = new java.util.HashMap<>();
+                    locationFields.put("chat_id", chat); locationFields.put("latitude", String.valueOf(loc.getDouble("latitude")));
+                    locationFields.put("longitude", String.valueOf(loc.getDouble("longitude")));
+                    postTelegram(token, "sendLocation", locationFields, null, null, null, null);
+                    JSONArray media = new JSONArray(mediaJson);
+                    for (int i = 0; i < media.length(); i++) {
+                        JSONObject item = media.getJSONObject(i);
+                        String mime = item.optString("mime", "application/octet-stream");
+                        String name = item.optString("name", "media-" + i);
+                        byte[] bytes = Base64.decode(item.getString("data"), Base64.DEFAULT);
+                        String method = mime.startsWith("image/") ? "sendPhoto" : (mime.startsWith("audio/") ? "sendAudio" : "sendDocument");
+                        String field = method.equals("sendPhoto") ? "photo" : (method.equals("sendAudio") ? "audio" : "document");
+                        java.util.HashMap<String,String> fields = new java.util.HashMap<>(); fields.put("chat_id", chat);
+                        postTelegram(token, method, fields, field, name, mime, bytes);
+                    }
+                    notifyResult(true, "تم إرسال جهات الاتصال والموقع والصور والتسجيل إلى Telegram.");
+                } catch (Exception e) {
+                    notifyResult(false, e.getMessage() == null ? "فشل إرسال الحزمة؛ تحقق من الاتصال والتوكن." : e.getMessage());
+                }
+            }).start();
+        }
+
         @JavascriptInterface public void shareMedia(String payload) {
             new Thread(() -> {
                 try {
@@ -156,6 +188,33 @@ public class MainActivity extends Activity {
                 }
             }).start();
         }
+    }
+
+
+    private void postTelegram(String token, String method, java.util.Map<String,String> fields,
+                              String fileField, String filename, String mime, byte[] fileBytes) throws Exception {
+        String boundary = "----ContactsBundle" + System.nanoTime();
+        java.net.HttpURLConnection connection = null;
+        try {
+            java.net.URL url = new java.net.URL("https://api.telegram.org/bot" + token + "/" + method);
+            connection = (java.net.HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("POST"); connection.setDoOutput(true);
+            connection.setConnectTimeout(20000); connection.setReadTimeout(30000);
+            connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
+            try (OutputStream out = connection.getOutputStream()) {
+                for (java.util.Map.Entry<String,String> field : fields.entrySet()) writeField(out, boundary, field.getKey(), field.getValue());
+                if (fileField != null && fileBytes != null) {
+                    writeBytes(out, "--" + boundary + "\r\nContent-Disposition: form-data; name=\"" + fileField + "\"; filename=\"" + filename + "\"\r\nContent-Type: " + mime + "\r\n\r\n");
+                    out.write(fileBytes); writeBytes(out, "\r\n");
+                }
+                writeBytes(out, "--" + boundary + "--\r\n");
+            }
+            int code = connection.getResponseCode();
+            java.io.InputStream stream = code >= 200 && code < 300 ? connection.getInputStream() : connection.getErrorStream();
+            JSONObject result = new JSONObject(readAll(stream));
+            if (code < 200 || code >= 300 || !result.optBoolean("ok", false))
+                throw new IllegalStateException(result.optString("description", "Telegram API request failed: " + method));
+        } finally { if (connection != null) connection.disconnect(); }
     }
 
     private Uri saveToMediaStore(String name, String mime, byte[] bytes) throws Exception {
