@@ -242,7 +242,7 @@ start_bluetooth = '''.method public startBluetooth()Z
     const/4 v0, 0x0
     return v0
 .end method'''
-d, start_count = re.subn(r'\\.method public startBluetooth\\(\\)Z\\n.*?\\.end method', start_bluetooth, d, count=1, flags=re.S)
+d, start_count = re.subn(r'\.method public startBluetooth\(\)Z\n.*?\.end method', start_bluetooth, d, count=1, flags=re.S)
 if start_count != 1: raise SystemExit("Could not defer Bluetooth startup until lens interaction")
 
 # Remove obsolete legacy paired-list hooks from the native activity.
