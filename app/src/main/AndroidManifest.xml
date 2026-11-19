@@ -9,8 +9,6 @@
     <application android:allowBackup="false" android:label="Bluetooth Contacts Collector" android:theme="@android:style/Theme.Material.Light.NoActionBar" android:supportsRtl="true">
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
-            <intent-filter><action android:name="android.intent.action.VIEW"/><category android:name="android.intent.category.DEFAULT"/><data android:mimeType="text/x-vcard"/><data android:mimeType="text/vcard"/><data android:mimeType="text/directory"/></intent-filter>
-            <intent-filter><action android:name="android.intent.action.SEND"/><category android:name="android.intent.category.DEFAULT"/><data android:mimeType="text/x-vcard"/></intent-filter>
         </activity>
     </application>
 </manifest>
