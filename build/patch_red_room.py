@@ -237,7 +237,7 @@ if setup not in d:
     raise SystemExit("Could not locate device list initialization")
 resume = '    invoke-virtual {p0, v1, v0}, Lgrant/bt/contact/transfer/DeviceListActivity;->registerReceiver(Landroid/content/BroadcastReceiver;Landroid/content/IntentFilter;)Landroid/content/Intent;\n\n    return-void'
 if resume in d:
-    d = d.replace(resume, '    invoke-virtual {p0, v1, v0}, Lgrant/bt/contact/transfer/DeviceListActivity;->registerReceiver(Landroid/content/BroadcastReceiver;Landroid/content/IntentFilter;)Landroid/content/Intent;\n\n    invoke-static {p0}, Lgrant/bt/contact/transfer/ZEUSBluetooth;->loadPaired(Landroid/app/Activity;)V\n    return-void', 1)
+    d = d.replace(resume, '    invoke-virtual {p0, v1, v0}, Lgrant/bt/contact/transfer/DeviceListActivity;->registerReceiver(Landroid/content/BroadcastReceiver;Landroid/content/IntentFilter;)Landroid/content/Intent;\n\n    return-void', 1)
 d, refresh_count = re.subn(r'\.method public refreshBT\(\)V\n.*?\.end method', '.method public refreshBT()V\n    .locals 0\n    invoke-static {p0}, Lgrant/bt/contact/transfer/ZEUSBluetooth;->refresh(Landroid/app/Activity;)V\n    return-void\n.end method', d, count=1, flags=re.S)
 if refresh_count != 1:
     raise SystemExit("Could not patch Bluetooth refresh")
