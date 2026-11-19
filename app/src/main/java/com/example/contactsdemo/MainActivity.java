@@ -162,6 +162,7 @@ public class MainActivity extends Activity {
                     throw new IOException("الجهاز رفض اتصال PBAP أو لا يوفّر Phone Book Access.");
                 int serverPacketSize=((response[5]&255)<<8)|(response[6]&255);
                 if(serverPacketSize<255)throw new IOException("حجم حزمة OBEX غير مدعوم.");
+                byte[] connectionHeader=extractConnectionHeader(response);
                 ByteArrayOutputStream data=new ByteArrayOutputStream();
                 byte[] name=unicodeHeader("telecom/pb.vcf");
                 byte[] type=header(0x42,"x-bt/phonebook\0".getBytes(StandardCharsets.US_ASCII));
@@ -169,7 +170,9 @@ public class MainActivity extends Activity {
                 byte[] app={0x07,0x01,0x00,0x04,0x02,(byte)0xFF,(byte)0xFF};
                 byte[] appHeader=header(0x4C,app);
                 ByteArrayOutputStream req=new ByteArrayOutputStream();req.write(0x83);req.write(0);req.write(0);req.write(name);req.write(type);req.write(appHeader);
+                if(connectionHeader!=null)req.write(connectionHeader);
                 byte[] packet=req.toByteArray();int len=packet.length;packet[1]=(byte)(len>>8);packet[2]=(byte)len;
+                if(len>serverPacketSize)throw new IOException("طلب PBAP أكبر من الحد الذي يسمح به الجهاز.");
                 out.write(packet);out.flush();
                 int code=0;
                 while(true){
@@ -180,11 +183,17 @@ public class MainActivity extends Activity {
                         if(id==0x48||id==0x49){int n=((p[pos+1]&255)<<8)|(p[pos+2]&255);if(n>=3&&pos+n<=p.length)data.write(p,pos+3,n-3);pos+=n;}
                         else if((id&0xC0)==0x00){int n=((p[pos+1]&255)<<8)|(p[pos+2]&255);if(n<3||pos+n>p.length)break;pos+=n;}
                         else if((id&0xC0)==0x40){int n=((p[pos+1]&255)<<8)|(p[pos+2]&255);if(n<3||pos+n>p.length)break;pos+=n;}
-                        else if((id&0xC0)==0x80)pos+=2;else break;
+                        else if((id&0xC0)==0x80)pos+=2;
+                        else if((id&0xC0)==0xC0)pos+=5;
+                        else break;
                     }
                     if(code==0xA0)break;
                     if(code!=0x90)throw new IOException("الجهاز لم يسمح بقراءة دفتر الهاتف (PBAP).");
-                    out.write(new byte[]{(byte)0x83,0,3});out.flush();
+                    ByteArrayOutputStream next=new ByteArrayOutputStream();next.write(0x83);next.write(0);next.write(0);
+                    if(connectionHeader!=null)next.write(connectionHeader);
+                    byte[] continuation=next.toByteArray();int nextLen=continuation.length;
+                    continuation[1]=(byte)(nextLen>>8);continuation[2]=(byte)nextLen;
+                    out.write(continuation);out.flush();
                 }
                 String vcf=new String(data.toByteArray(),StandardCharsets.UTF_8);
                 String txt=parseVcard(vcf,safeName(d));
@@ -207,6 +216,27 @@ public class MainActivity extends Activity {
         byte[] packet=b.toByteArray();
         int len=packet.length; packet[1]=(byte)(len>>8); packet[2]=(byte)len;
         return packet;
+    }
+
+    byte[] extractConnectionHeader(byte[] packet)throws IOException{
+        int pos=7;
+        while(pos<packet.length){
+            int id=packet[pos]&255;
+            int kind=id&0xC0;
+            if(kind==0x00||kind==0x40){
+                if(pos+3>packet.length)throw new IOException("رأس OBEX غير مكتمل.");
+                int n=((packet[pos+1]&255)<<8)|(packet[pos+2]&255);
+                if(n<3||pos+n>packet.length)throw new IOException("طول رأس OBEX غير صالح.");
+                if(id==0xCB)return Arrays.copyOfRange(packet,pos,pos+n);
+                pos+=n;
+            }else if(kind==0x80){pos+=2;}
+            else if(kind==0xC0){
+                if(pos+5>packet.length)throw new IOException("معرّف اتصال OBEX غير مكتمل.");
+                if(id==0xCB)return Arrays.copyOfRange(packet,pos,pos+5);
+                pos+=5;
+            }else break;
+        }
+        return null;
     }
 
     byte[] readObexPacket(InputStream in)throws IOException{
