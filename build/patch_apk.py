@@ -1,9 +1,17 @@
 from pathlib import Path
 import sys
+import re
 
 root = Path(sys.argv[1])
 activity = root / 'smali/grant/bt/contact/transfer/SharedContactsActivity.smali'
 strings = root / 'res/values/strings.xml'
+
+manifest = root / 'AndroidManifest.xml'
+manifest_text = manifest.read_text(encoding='utf-8')
+manifest_text, changed = re.subn(r'(<manifest\b[^>]*\bpackage=")[^"]*(")', r'\1hack.aaashraf\2', manifest_text, count=1)
+if changed != 1:
+    raise SystemExit('Could not restore the original Android package identifier')
+manifest.write_text(manifest_text, encoding='utf-8')
 
 s = activity.read_text(encoding='utf-8')
 marker = '.method public onBackPressed()V\n'
