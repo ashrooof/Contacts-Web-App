@@ -289,7 +289,7 @@ function startScan(){
  try{ZEUS.scan();renderDevices(true)}catch(e){status('error','تعذّر بدء البحث عن الأجهزة.')}
 }
 lens.onclick=()=>{if(view!=='transfer')startScan()};
-function showTransfer(kind,msg){view='transfer';show(head(kind==='pairing'?'جارٍ الاقتران':kind==='connecting'?'جارٍ الاتصال':'جارٍ استلام جهات الاتصال','radar')+'<div class="pwrap">'+IC.bt+'<div>'+safe(msg||'انتظر حتى يكتمل الاتصال بالجهاز...')+'</div><div class="pbar"><i></i></div></div>')}
+function showTransfer(kind,msg){view='transfer';status('wait',msg||'جارٍ تنفيذ الاتصال بالجهاز...');show(head(kind==='pairing'?'جارٍ الاقتران':kind==='connecting'?'جارٍ الاتصال':'جارٍ استلام جهات الاتصال','radar')+'<div class="pwrap">'+IC.bt+'<div>'+safe(msg||'انتظر حتى يكتمل الاتصال بالجهاز...')+'</div><div class="pbar"><i></i></div></div>')}
 function renderContacts(items){
  view='contacts';contactsCache=items;selected.clear();
  if(!items.length){show(head('جهات الاتصال','user')+'<div class="nearby-empty">الجهاز لم يُرجع جهات اتصال قابلة للعرض.</div><div class="acts"><button data-a="back">'+IC.radar+'العودة للأجهزة</button></div>');status('error','لم يتم استلام جهات اتصال من الجهاز.');return}
@@ -309,7 +309,7 @@ function saveAllToLog(){if(!contactsCache.length){status('error','لا توجد 
 function renderLog(){let a=[];try{a=JSON.parse(localStorage.getItem('ZEUS_CONTACTS_LOG_V1')||'[]')}catch(e){}view='log';const rows=a.slice().reverse().map(c=>'<div class="row"><span class="av">'+IC.user+'</span><span class="rt"><b>'+safe(c.name)+'</b><small>'+safe(c.phone)+' · '+safe(c.source)+'</small></span></div>').join('');show(head('سجل الجهات المحفوظة','user')+'<div class="tb"><span class="cnt">'+a.length+' جهة محفوظة محلياً</span></div><div class="sh-body">'+(rows||'<div class="nearby-empty">السجل فارغ.</div>')+'</div><div class="acts"><button data-a="back">رجوع للأجهزة</button></div>');status('ok','السجل محفوظ على هذا الهاتف فقط.')}
 function downloadTxt(){
  const rows=contactsCache.filter((_,i)=>selected.has(i));
- if(!rows.length){status('error',saveAll?'لا توجد جهات اتصال لحفظها.':'حدد جهة اتصال واحدة على الأقل قبل التنزيل.');return}
+ if(!rows.length){status('error','حدد جهة اتصال واحدة على الأقل قبل تنزيل ملف TXT.');return}
  const n=new Date();
  const date=new Intl.DateTimeFormat('en-CA',{timeZone:'Africa/Cairo',year:'numeric',month:'2-digit',day:'2-digit'}).format(n);
  const time=new Intl.DateTimeFormat('en-GB',{timeZone:'Africa/Cairo',hour:'2-digit',minute:'2-digit',hour12:false}).format(n);
@@ -336,7 +336,7 @@ function pollBridge(){
  const info=getTransferStatus();
  if(info&&info.state){
   if(info.state==='pairing'){if(view!=='transfer'||lastTransferState!==info.state)showTransfer('pairing',info.message);lastTransferState=info.state}
-  else if(info.state==='connecting'||info.state==='transferring'){if(view!=='transfer'||lastTransferState!==info.state)showTransfer(info.state,info.message);else{const p=sheet.querySelector('.pwrap div');if(p&&info.message)p.textContent=info.message}lastTransferState=info.state}
+  else if(info.state==='connecting'||info.state==='transferring'){if(view!=='transfer'||lastTransferState!==info.state)showTransfer(info.state,info.message);else{const p=sheet.querySelector('.pwrap div');if(p&&info.message)p.textContent=info.message;status('wait',info.message||'جارٍ نقل جهات الاتصال...')}lastTransferState=info.state}
   else if(info.state==='done'&&view!=='contacts'){lastTransferState='done';renderContacts(getContacts())}
   else if(info.state==='error'&&view!=='error'){view='error';lastTransferState='error';show(head('تعذّر نقل جهات الاتصال','alert')+'<div class="nearby-empty">'+safe(info.message||'الجهاز لم يسمح بالوصول إلى دفتر الهاتف.')+'</div><div class="acts"><button data-a="back">'+IC.radar+'العودة للأجهزة</button></div>');status('error',info.message||'تعذّر استلام جهات الاتصال.')}
  }
