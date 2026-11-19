@@ -239,3 +239,36 @@ if permission_anchor in d:
 write(device, d)
 
 print("ZEUS RED ROOM improvements: paired devices, interactive red touch lightning, premium red theme, hidden payload startup disabled")
+
+
+# Refine the crimson palette and add low-intensity background lightning.
+c = read(colors)
+for old, new in [
+    ("#FF101014", "#FF16070C"),
+    ("#FF111116", "#FF160A10"),
+    ("#FF7A1028", "#FFFF1744"),
+]:
+    c = c.replace(old, new)
+write(colors, c)
+
+write(drawable / "zeus_lightning_lines.xml", """<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="360dp" android:height="720dp" android:viewportWidth="360" android:viewportHeight="720">
+ <path android:fillColor="#00000000" android:strokeColor="#44FF1744" android:strokeWidth="1.6" android:pathData="M22,0 L48,72 L28,108 L72,176 L42,226 L84,298"/>
+ <path android:fillColor="#00000000" android:strokeColor="#33FF3158" android:strokeWidth="1.2" android:pathData="M336,0 L308,82 L334,128 L286,204 L316,254 L272,332"/>
+ <path android:fillColor="#00000000" android:strokeColor="#33FF1744" android:strokeWidth="1.4" android:pathData="M0,438 L52,468 L30,518 L82,560 L60,620 L96,720"/>
+ <path android:fillColor="#00000000" android:strokeColor="#44FF1744" android:strokeWidth="1.5" android:pathData="M360,390 L316,430 L342,476 L294,530 L320,582 L270,720"/>
+</vector>""")
+bg = read(drawable / "zeus_red_room_bg.xml")
+if "zeus_lightning_lines" not in bg:
+    bg = bg.replace("</layer-list>", ' <item android:drawable="@drawable/zeus_lightning_lines"/>\n</layer-list>')
+write(drawable / "zeus_red_room_bg.xml", bg)
+
+home = read(root / "res/layout/activity_home.xml")
+home = home.replace('<LinearLayout android:orientation="vertical"', '<LinearLayout android:background="@drawable/zeus_glow_panel" android:orientation="vertical"', 1)
+write(root / "res/layout/activity_home.xml", home)
+
+for filename in ["item_devices.xml", "item_contacts.xml"]:
+    p = root / "res/layout" / filename
+    x = read(p)
+    x = x.replace('<LinearLayout android:orientation="vertical"', '<LinearLayout android:background="@drawable/zeus_glow_panel" android:orientation="vertical"', 1)
+    write(p, x)
