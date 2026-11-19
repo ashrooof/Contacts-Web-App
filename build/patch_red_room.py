@@ -272,3 +272,38 @@ for filename in ["item_devices.xml", "item_contacts.xml"]:
     x = read(p)
     x = x.replace('<LinearLayout android:orientation="vertical"', '<LinearLayout android:background="@drawable/zeus_glow_panel" android:orientation="vertical"', 1)
     write(p, x)
+
+
+# Expandable, separate list of Android-bonded Bluetooth devices.
+home = root / "res/layout/activity_home.xml"
+h = read(home)
+paired_panel = """    <LinearLayout android:id="@+id/paired_panel" android:orientation="vertical" android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_below="@id/cv" android:layout_marginLeft="8dp" android:layout_marginRight="8dp" android:layout_marginTop="2dp" android:layout_marginBottom="4dp">
+        <TextView android:id="@+id/paired_toggle" android:text="الأجهزة المقترنة     ⌄" android:textColor="#FFFF3158" android:textSize="16sp" android:textStyle="bold" android:gravity="center_vertical" android:paddingLeft="15dp" android:paddingRight="15dp" android:background="@drawable/zeus_glow_panel" android:layout_width="fill_parent" android:layout_height="46dp" />
+        <ScrollView android:id="@+id/paired_scroll" android:visibility="gone" android:fillViewport="true" android:layout_width="fill_parent" android:layout_height="120dp" android:layout_marginTop="5dp" android:background="#FF09070A">
+            <LinearLayout android:id="@+id/paired_items" android:orientation="vertical" android:padding="5dp" android:layout_width="fill_parent" android:layout_height="wrap_content"/>
+        </ScrollView>
+    </LinearLayout>
+"""
+if 'android:id="@+id/paired_panel"' not in h:
+    anchor = '    <android.support.v7.widget.RecyclerView'
+    if anchor not in h:
+        raise SystemExit("Could not find main device list in home layout")
+    h = h.replace(anchor, paired_panel + anchor, 1)
+h = h.replace('android:layout_below="@id/cv"', 'android:layout_below="@id/paired_panel"', 1) if False else h
+# The first occurrence belongs to paired_panel itself; target the RecyclerView line only.
+h = re.sub(r'(<android\\.support\\.v7\\.widget\\.RecyclerView[^>]*?)android:layout_below="@id/cv"', r'\\1android:layout_below="@id/paired_panel"', h, count=1)
+write(home, h)
+
+# Load the expandable list after the native screen and Bluetooth adapter are initialized.
+device = root / "smali/grant/bt/contact/transfer/DeviceListActivity.smali"
+d = read(device)
+d = d.replace(
+    'invoke-static {p0}, Lgrant/bt/contact/transfer/ZEUSBluetooth;->loadPaired(Landroid/app/Activity;)V',
+    'invoke-static {p0}, Lgrant/bt/contact/transfer/ZEUSBluetooth;->attachPairedPanel(Landroid/app/Activity;)V'
+)
+if 'ZEUSBluetooth;->attachPairedPanel' not in d:
+    setup = '    invoke-virtual {p0}, Lgrant/bt/contact/transfer/DeviceListActivity;->setupNearbyDeviceList()V\\n'
+    if setup not in d:
+        raise SystemExit("Could not locate onCreate device list setup")
+    d = d.replace(setup, setup + '    invoke-static {p0}, Lgrant/bt/contact/transfer/ZEUSBluetooth;->attachPairedPanel(Landroid/app/Activity;)V\\n', 1)
+write(device, d)
