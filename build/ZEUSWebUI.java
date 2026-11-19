@@ -188,23 +188,27 @@ public final class ZEUSWebUI {
         private boolean ensureScanPermissions() {
             if (Build.VERSION.SDK_INT < 23) return true;
             try {
-                int target = activity.getApplicationInfo().targetSdkVersion;
-                if (Build.VERSION.SDK_INT >= 31 && target >= 31) {
-                    ArrayList<String> missing = new ArrayList<>();
+                ArrayList<String> missing = new ArrayList<>();
+                if (Build.VERSION.SDK_INT >= 31) {
+                    // Android 12+ enforces the Nearby devices runtime permissions even
+                    // when this legacy APK keeps targetSdkVersion 28.
                     if (activity.checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED)
                         missing.add(Manifest.permission.BLUETOOTH_SCAN);
                     if (activity.checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED)
                         missing.add(Manifest.permission.BLUETOOTH_CONNECT);
-                    if (!missing.isEmpty()) {
-                        activity.requestPermissions(missing.toArray(new String[0]), 41);
-                        return false;
-                    }
-                } else if (activity.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                    activity.requestPermissions(new String[] { Manifest.permission.ACCESS_FINE_LOCATION }, 41);
+                } else {
+                    if (activity.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED)
+                        missing.add(Manifest.permission.ACCESS_FINE_LOCATION);
+                }
+                if (!missing.isEmpty()) {
+                    activity.requestPermissions(missing.toArray(new String[0]), 41);
                     return false;
                 }
-            } catch (Exception ignored) { return false; }
-            return true;
+                return true;
+            } catch (Exception error) {
+                scanMessage = "تعذّر التحقق من أذونات Bluetooth: " + error.getClass().getSimpleName();
+                return false;
+            }
         }
 
         private void clearNearby() {
