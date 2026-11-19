@@ -274,7 +274,7 @@ function renderDevices(force){
   const near=parse('discoveredDevices'),active=!!ZEUS.isDiscovering(),snap=JSON.stringify([near,active]);
   lens.classList.toggle('on',active);
   if(active)status('wait','جاري فحص الأجهزة القريبة...');
-  else if(scanStarted)status(near.length?'ok':'error',near.length?'اكتمل البحث. اختر الجهاز المطلوب.':'انتهى البحث ولم يتم العثور على أجهزة ظاهرة.');
+  else if(scanStarted){let diagnostic='';try{diagnostic=ZEUS.scanMessage?ZEUS.scanMessage():''}catch(e){}status(near.length?'ok':'error',near.length?'اكتمل البحث. اختر الجهاز المطلوب.':(diagnostic||'انتهى البحث. تأكد أن الجهاز الآخر في وضع الظهور (Discoverable) وأن Bluetooth والموقع مفعّلان.'));}
   if(!force&&snap===lastSnapshot)return;lastSnapshot=snap;
   const row=d=>'<button class="row" data-a="connect" data-address="'+safe(d.address)+'"><span class="av">'+IC.phone+'</span><span class="rt"><b>'+safe(d.name||'Bluetooth Device')+'</b><small>'+safe(d.address)+'</small></span><span class="call">'+IC.bt+'</span><span class="badge">'+(d.paired?'PAIRED':'AVAILABLE')+'</span></button>';
   show(head('الأجهزة المكتشفة الآن','radar')+'<div class="tb"><span class="cnt">نتائج البحث الحالي · '+near.length+'</span></div><div class="sh-body">'+(near.length?near.map(row).join(''):'<div class="nearby-empty">'+(active?'يتم البحث عن الأجهزة القريبة الآن...':'اضغط العدسة لبدء البحث عن أجهزة قريبة')+'</div>')+'</div>');
