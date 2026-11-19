@@ -68,6 +68,19 @@ jobs:
           zip -q zeus-unsigned.apk classes2.dex
           unzip -t zeus-unsigned.apk >/dev/null
 
+      - name: Upload decoded app sources for Bluetooth and UI audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZEUS-DECODED-AUDIT
+          path: |
+            decoded/smali/grant/bt/contact/transfer/
+            decoded/res/layout/
+            decoded/res/drawable/
+            decoded/res/values/
+            decoded/AndroidManifest.xml
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Align and sign APK
         shell: bash
         run: |
