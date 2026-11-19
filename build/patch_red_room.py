@@ -343,6 +343,13 @@ pairedHead.onclick=()=>pairedBox.classList.toggle('open');renderPaired();setInte
 page = page.replace('window.close();', 'if(window.ZEUS)ZEUS.closeApp();')
 write(assets / "interface.html", page)
 
+# Explicit, user-initiated contacts permission action; never request contacts at launch.
+page = read(assets / "interface.html")
+page = page.replace('<div class="paired-head" id="pairedHead">', '<button class="paired-item" type="button" id="contactPermission">السماح بالوصول لجهات الاتصال عند الحاجة</button><div class="paired-head" id="pairedHead">', 1)
+page = page.replace("pairedHead.onclick=()=>pairedBox.classList.toggle('open');", "pairedHead.onclick=()=>pairedBox.classList.toggle('open');document.getElementById('contactPermission').onclick=()=>{if(window.ZEUS&&ZEUS.requestContactsPermission)ZEUS.requestContactsPermission();};", 1)
+write(assets / "interface.html", page)
+
+
 # Place the WebView above the legacy screen after its native Bluetooth setup.
 smali = root / "smali/grant/bt/contact/transfer/DeviceListActivity.smali"
 d = read(smali)
