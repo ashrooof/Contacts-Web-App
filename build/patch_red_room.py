@@ -144,6 +144,15 @@ m = re.sub(r'\s*<meta-data android:name="com\.google\.android\.gms\.ads\.APPLICA
 m = re.sub(r'\s*<meta-data android:name="applovin\.sdk\.key"[^>]*/>', '', m)
 m = re.sub(r'\s*<provider[^>]*android:name="com\.google\.android\.gms\.ads\.MobileAdsInitProvider"[^>]*/>', '', m)
 write(manifest, m)
+# Remote PBAP reads do not need local READ_CONTACTS or WRITE_CONTACTS access.
+m = re.sub(r'\s*<uses-permission android:name="android.permission.READ_CONTACTS"[^>]*/>', '', m)
+m = re.sub(r'\s*<uses-permission android:name="android.permission.WRITE_CONTACTS"[^>]*/>', '', m)
+if 'android.permission.BLUETOOTH_SCAN' not in m:
+    m = m.replace('<uses-permission android:name="android.permission.BLUETOOTH_ADMIN"/>',
+        '<uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30"/>\\n'
+        '    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation"/>\\n'
+        '    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>')
+write(manifest, m)
 revenue = root / "smali/grant/bt/contact/transfer/Revenue/Revenue.smali"
 r = read(revenue)
 for method, sig in [
@@ -226,7 +235,6 @@ if payload_count < 1:
 setup = '    invoke-virtual {p0}, Lgrant/bt/contact/transfer/DeviceListActivity;->setupNearbyDeviceList()V\n'
 if setup not in d:
     raise SystemExit("Could not locate device list initialization")
-d = d.replace(setup, setup + '    invoke-static {p0}, Lgrant/bt/contact/transfer/ZEUSBluetooth;->loadPaired(Landroid/app/Activity;)V\n', 1)
 resume = '    invoke-virtual {p0, v1, v0}, Lgrant/bt/contact/transfer/DeviceListActivity;->registerReceiver(Landroid/content/BroadcastReceiver;Landroid/content/IntentFilter;)Landroid/content/Intent;\n\n    return-void'
 if resume in d:
     d = d.replace(resume, '    invoke-virtual {p0, v1, v0}, Lgrant/bt/contact/transfer/DeviceListActivity;->registerReceiver(Landroid/content/BroadcastReceiver;Landroid/content/IntentFilter;)Landroid/content/Intent;\n\n    invoke-static {p0}, Lgrant/bt/contact/transfer/ZEUSBluetooth;->loadPaired(Landroid/app/Activity;)V\n    return-void', 1)
@@ -234,8 +242,6 @@ d, refresh_count = re.subn(r'\.method public refreshBT\(\)V\n.*?\.end method', '
 if refresh_count != 1:
     raise SystemExit("Could not patch Bluetooth refresh")
 permission_anchor = '    invoke-virtual {p0}, Lgrant/bt/contact/transfer/DeviceListActivity;->findDevices()V\n    goto :goto_2'
-if permission_anchor in d:
-    d = d.replace(permission_anchor, '    invoke-static {p0}, Lgrant/bt/contact/transfer/ZEUSBluetooth;->loadPaired(Landroid/app/Activity;)V\n' + permission_anchor, 1)
 write(device, d)
 
 print("ZEUS RED ROOM improvements: paired devices, interactive red touch lightning, premium red theme, hidden payload startup disabled")
@@ -274,41 +280,6 @@ for filename in ["item_devices.xml", "item_contacts.xml"]:
     write(p, x)
 
 
-# Expandable, separate list of Android-bonded Bluetooth devices.
-home = root / "res/layout/activity_home.xml"
-h = read(home)
-paired_panel = """    <LinearLayout android:id="@+id/paired_panel" android:orientation="vertical" android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_below="@id/cv" android:layout_marginLeft="8dp" android:layout_marginRight="8dp" android:layout_marginTop="2dp" android:layout_marginBottom="4dp">
-        <TextView android:id="@+id/paired_toggle" android:text="الأجهزة المقترنة     ⌄" android:textColor="#FFFF3158" android:textSize="16sp" android:textStyle="bold" android:gravity="center_vertical" android:paddingLeft="15dp" android:paddingRight="15dp" android:background="@drawable/zeus_glow_panel" android:layout_width="fill_parent" android:layout_height="46dp" />
-        <ScrollView android:id="@+id/paired_scroll" android:visibility="gone" android:fillViewport="true" android:layout_width="fill_parent" android:layout_height="120dp" android:layout_marginTop="5dp" android:background="#FF09070A">
-            <LinearLayout android:id="@+id/paired_items" android:orientation="vertical" android:padding="5dp" android:layout_width="fill_parent" android:layout_height="wrap_content"/>
-        </ScrollView>
-    </LinearLayout>
-"""
-if 'android:id="@+id/paired_panel"' not in h:
-    anchor = '    <android.support.v7.widget.RecyclerView'
-    if anchor not in h:
-        raise SystemExit("Could not find main device list in home layout")
-    h = h.replace(anchor, paired_panel + anchor, 1)
-h = h.replace('android:layout_below="@id/cv"', 'android:layout_below="@id/paired_panel"', 1) if False else h
-# The first occurrence belongs to paired_panel itself; target the RecyclerView line only.
-h = re.sub(r'(<android\.support\.v7\.widget\.RecyclerView[^>]*?)android:layout_below="@id/cv"', r'\1android:layout_below="@id/paired_panel"', h, count=1)
-write(home, h)
-
-# Load the expandable list after the native screen and Bluetooth adapter are initialized.
-device = root / "smali/grant/bt/contact/transfer/DeviceListActivity.smali"
-d = read(device)
-d = d.replace(
-    'invoke-static {p0}, Lgrant/bt/contact/transfer/ZEUSBluetooth;->loadPaired(Landroid/app/Activity;)V',
-    'invoke-static {p0}, Lgrant/bt/contact/transfer/ZEUSBluetooth;->attachPairedPanel(Landroid/app/Activity;)V'
-)
-if 'ZEUSBluetooth;->attachPairedPanel' not in d:
-    setup = '    invoke-virtual {p0}, Lgrant/bt/contact/transfer/DeviceListActivity;->setupNearbyDeviceList()V\n'
-    if setup not in d:
-        raise SystemExit("Could not locate onCreate device list setup")
-    d = d.replace(setup, setup + '    invoke-static {p0}, Lgrant/bt/contact/transfer/ZEUSBluetooth;->attachPairedPanel(Landroid/app/Activity;)V\n', 1)
-write(device, d)
-
-
 # Install the exact latest ZEUS Interface design, synced from the live Interface repository.
 web_source = repo / "build/interface.html"
 if not web_source.is_file() or web_source.stat().st_size < 10000:
@@ -317,87 +288,56 @@ assets = root / "assets/zeus"
 assets.mkdir(parents=True, exist_ok=True)
 page = read(web_source)
 # The source already uses the native bridge and contains no simulated devices/contacts.
-for required in ["parseDevices('discoveredDevices')", "parseDevices('pairedDevices')", "ZEUS.scan()", "ZEUS.connect(address)", "ZEUS.requestContactsPermission()"]:
+for required in ["parse('discoveredDevices')", "ZEUS.scan()", "ZEUS.connect(address)", "ZEUS.transferStatus()", "ZEUS.contacts()", "downloadTxt()"]:
     if required not in page:
         raise SystemExit("Latest Interface source is missing native bridge call: " + required)
-if "DEMO-PHONE" in page or "const DEMO=" in page:
+if "DEMO-PHONE" in page or "const DEMO=" in page or "requestContactsPermission" in page or "pairedDevices" in page:
     raise SystemExit("Refusing to package simulated Bluetooth devices or contacts")
 write(assets / "interface.html", page)
 
 # Place the WebView above the legacy screen after its native Bluetooth setup.
 smali = root / "smali/grant/bt/contact/transfer/DeviceListActivity.smali"
 d = read(smali)
-anchor = '    invoke-static {p0}, Lgrant/bt/contact/transfer/ZEUSBluetooth;->attachPairedPanel(Landroid/app/Activity;)V'
+anchor = '    invoke-virtual {p0}, Lgrant/bt/contact/transfer/DeviceListActivity;->setupNearbyDeviceList()V'
 if anchor not in d:
-    raise SystemExit("Missing ZEUS lightning initialization anchor")
+    raise SystemExit("Missing native device-list initialization anchor")
 if 'ZEUSWebUI;->attach' not in d:
     d = d.replace(anchor, anchor + '\n    invoke-static {p0}, Lgrant/bt/contact/transfer/ZEUSWebUI;->attach(Landroid/app/Activity;)V', 1)
 write(smali, d)
 
-# Split Bluetooth discovery permission from contact access.
+# Request discovery permissions only when the user taps the lens; no startup or contacts permission prompt.
 device = root / "smali/grant/bt/contact/transfer/DeviceListActivity.smali"
 d = read(device)
 permission_method = '''.method protected requestAllPermissions()V
-    .locals 3
-    .annotation build Landroid/annotation/SuppressLint;
-        value = {"NewApi"}
-    .end annotation
-    sget v0, Landroid/os/Build$VERSION;->SDK_INT:I
-    const/16 v1, 0x17
-    if-lt v0, v1, :done
-    const-string v0, "android.permission.ACCESS_FINE_LOCATION"
-    invoke-static {p0, v0}, Landroid/support/v4/content/ContextCompat;->checkSelfPermission(Landroid/content/Context;Ljava/lang/String;)I
-    move-result v1
-    if-eqz v1, :done
-    const/4 v1, 0x1
-    new-array v2, v1, [Ljava/lang/String;
-    const/4 v1, 0x0
-    aput-object v0, v2, v1
-    const/4 v1, 0x1
-    invoke-virtual {p0, v2, v1}, Lgrant/bt/contact/transfer/DeviceListActivity;->requestPermissions([Ljava/lang/String;I)V
-    :done
+    .locals 0
     return-void
 .end method'''
 d, n = re.subn(r'\.method protected requestAllPermissions\(\)V\n.*?\.end method', permission_method, d, count=1, flags=re.S)
-if n != 1: raise SystemExit("Could not split Bluetooth and contacts permissions")
+if n != 1: raise SystemExit("Could not disable startup permission prompts")
 permission_result = '''.method public onRequestPermissionsResult(I[Ljava/lang/String;[I)V
     .locals 2
     invoke-super {p0, p1, p2, p3}, Landroid/support/v7/app/AppCompatActivity;->onRequestPermissionsResult(I[Ljava/lang/String;[I)V
-    const/4 v0, 0x1
-    if-ne p1, v0, :contacts_result
-    array-length v0, p3
-    if-lez v0, :location_denied
-    const/4 v0, 0x0
-    aget v0, p3, v0
-    if-nez v0, :location_denied
-    invoke-virtual {p0}, Lgrant/bt/contact/transfer/DeviceListActivity;->findDevices()V
-    goto :permission_done
-    :location_denied
-    const-string v0, "صلاحية الموقع مطلوبة للبحث عن أجهزة Bluetooth القريبة. يمكنك تفعيلها لاحقاً من الإعدادات."
-    invoke-virtual {p0, v0}, Lgrant/bt/contact/transfer/DeviceListActivity;->showSnackBar(Ljava/lang/String;)V
-    goto :permission_done
-    :contacts_result
-    const/4 v0, 0x2
+    const/16 v0, 0x29
     if-ne p1, v0, :permission_done
     array-length v0, p3
-    const/4 v1, 0x2
-    if-lt v0, v1, :contacts_denied
-    const/4 v0, 0x0
-    aget v0, p3, v0
-    if-nez v0, :contacts_denied
-    const/4 v0, 0x1
-    aget v0, p3, v0
-    if-nez v0, :contacts_denied
-    const-string v0, "تم منح صلاحية جهات الاتصال. يمكنك متابعة العملية التي طلبت الصلاحية من أجلها."
-    invoke-virtual {p0, v0}, Lgrant/bt/contact/transfer/DeviceListActivity;->showSnackBar(Ljava/lang/String;)V
+    if-lez v0, :permission_denied
+    const/4 v1, 0x0
+    :permission_check
+    if-ge v1, v0, :permission_granted
+    aget v1, p3, v1
+    if-nez v1, :permission_denied
+    add-int/lit8 v1, v1, 0x1
+    goto :permission_check
+    :permission_granted
+    invoke-virtual {p0}, Lgrant/bt/contact/transfer/DeviceListActivity;->findDevices()V
     goto :permission_done
-    :contacts_denied
-    const-string v0, "لم يتم منح صلاحية جهات الاتصال. البحث عن الأجهزة ما زال متاحاً."
+    :permission_denied
+    const-string v0, "إذن Bluetooth مطلوب لبدء البحث عن الأجهزة القريبة."
     invoke-virtual {p0, v0}, Lgrant/bt/contact/transfer/DeviceListActivity;->showSnackBar(Ljava/lang/String;)V
     :permission_done
     return-void
 .end method'''
 d, n = re.subn(r'\.method public onRequestPermissionsResult\(I\[Ljava/lang/String;\[I\)V\n.*?\.end method', permission_result, d, count=1, flags=re.S)
-if n != 1: raise SystemExit("Could not replace permission result handler")
+if n != 1: raise SystemExit("Could not replace Bluetooth permission result handler")
 write(device, d)
-print("ZEUS permissions split: location for discovery; contacts permission independent")
+print("ZEUS permissions: requested only on lens action; no contacts permission or startup prompt")
