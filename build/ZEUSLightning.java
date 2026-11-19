@@ -23,6 +23,19 @@ public final class ZEUSLightning {
         attachTree(root, overlay);
         root.addView(overlay, new FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        View search = activity.findViewById(0x7f080092);
+        if (search != null) {
+            ValueAnimator pulse = ValueAnimator.ofFloat(1f, 1.085f);
+            pulse.setDuration(950);
+            pulse.setRepeatCount(ValueAnimator.INFINITE);
+            pulse.setRepeatMode(ValueAnimator.REVERSE);
+            pulse.addUpdateListener(a -> {
+                float scale = (Float) a.getAnimatedValue();
+                search.setScaleX(scale);
+                search.setScaleY(scale);
+            });
+            pulse.start();
+        }
     }
 
     private static void attachTree(View view, final LightningView overlay) {
