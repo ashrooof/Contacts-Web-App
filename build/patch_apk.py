@@ -6,6 +6,10 @@ import shutil
 root = Path(sys.argv[1])
 activity = root / 'smali/grant/bt/contact/transfer/SharedContactsActivity.smali'
 strings = root / 'res/values/strings.xml'
+apktool_meta = root / 'apktool.yml'
+meta_text = apktool_meta.read_text(encoding='utf-8')
+meta_text = meta_text.replace('renameManifestPackage: hack.aaashraf', 'renameManifestPackage: hack.aaashraf.zeus')
+apktool_meta.write_text(meta_text, encoding='utf-8')
 
 manifest = root / 'AndroidManifest.xml'
 manifest_text = manifest.read_text(encoding='utf-8')
