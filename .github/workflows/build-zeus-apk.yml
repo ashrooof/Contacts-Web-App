@@ -119,3 +119,5 @@ jobs:
             verify-apk/AndroidManifest.xml
           if-no-files-found: error
           retention-days: 30
+
+# Rebuild after correcting the local ZEUS Interface asset injection.
