@@ -308,7 +308,7 @@ assets = root / "assets/zeus"
 assets.mkdir(parents=True, exist_ok=True)
 page = read(web_source)
 # The source already uses the native bridge and contains no simulated devices/contacts.
-for required in ["parse('discoveredDevices')", "ZEUS.scan()", "ZEUS.connect(address)", "ZEUS.transferStatus()", "ZEUS.contacts()", "downloadTxt()"]:
+for required in ["parse('discoveredDevices')", "ZEUS.scan()", "ZEUS.connect(address)", "ZEUS.transferStatus()", "ZEUS.contacts()", "function downloadTxt("]:
     if required not in page:
         raise SystemExit("Latest Interface source is missing native bridge call: " + required)
 if "DEMO-PHONE" in page or "const DEMO=" in page or "requestContactsPermission" in page or "pairedDevices" in page:
