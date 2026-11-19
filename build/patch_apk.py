@@ -6,7 +6,7 @@ activity = root / 'smali/grant/bt/contact/transfer/SharedContactsActivity.smali'
 strings = root / 'res/values/strings.xml'
 
 s = activity.read_text(encoding='utf-8')
-marker = '.method public onBackPressed()V\\n'
+marker = '.method public onBackPressed()V\n'
 if marker not in s:
     raise SystemExit('Could not find SharedContactsActivity insertion point')
 
