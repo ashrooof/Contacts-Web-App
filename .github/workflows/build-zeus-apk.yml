@@ -128,3 +128,5 @@ jobs:
 # Rebuild after adding one-tap save-all contacts TXT export.
 
 # Rebuild after hardening native device-named TXT export to Downloads.
+
+# Rebuild after live status, SVG controls, local contacts log and Cairo clock polish.
