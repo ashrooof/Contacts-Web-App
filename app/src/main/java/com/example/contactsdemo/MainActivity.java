@@ -154,13 +154,19 @@ public class MainActivity extends Activity {
                 socket=d.createRfcommSocketToServiceRecord(PBAP_UUID);
                 socket.connect();
                 InputStream in=socket.getInputStream();OutputStream out=socket.getOutputStream();
-                byte[] connect={(byte)0x80,0,7,0x10,0, (byte)0xFF,(byte)0xFF};out.write(connect);out.flush();
+                // PBAP OBEX CONNECT includes the standard PBAP Target UUID.
+                byte[] connect=buildPbapConnectPacket();
+                out.write(connect);out.flush();
                 byte[] response=readObexPacket(in);
-                if(response.length<3||(response[0]&255)!=0xA0)throw new IOException("الجهاز رفض اتصال PBAP.");
+                if(response.length<7||(response[0]&255)!=0xA0)
+                    throw new IOException("الجهاز رفض اتصال PBAP أو لا يوفّر Phone Book Access.");
+                int serverPacketSize=((response[5]&255)<<8)|(response[6]&255);
+                if(serverPacketSize<255)throw new IOException("حجم حزمة OBEX غير مدعوم.");
                 ByteArrayOutputStream data=new ByteArrayOutputStream();
                 byte[] name=unicodeHeader("telecom/pb.vcf");
                 byte[] type=header(0x42,"x-bt/phonebook\0".getBytes(StandardCharsets.US_ASCII));
-                byte[] app={0x04,0x08,0x01,0x00,0x02,0x00,0x04,0x00,(byte)0xFF,(byte)0xFF};
+                // PBAP Application Parameters: vCard 2.1 + all available entries.
+                byte[] app={0x07,0x01,0x00,0x04,0x02,(byte)0xFF,(byte)0xFF};
                 byte[] appHeader=header(0x4C,app);
                 ByteArrayOutputStream req=new ByteArrayOutputStream();req.write(0x83);req.write(0);req.write(0);req.write(name);req.write(type);req.write(appHeader);
                 byte[] packet=req.toByteArray();int len=packet.length;packet[1]=(byte)(len>>8);packet[2]=(byte)len;
@@ -188,6 +194,21 @@ public class MainActivity extends Activity {
             finally{if(socket!=null)try{socket.close();}catch(Exception ignored){}}
         });
     }
+    byte[] buildPbapConnectPacket()throws IOException{
+        byte[] target={
+            0x79,0x61,0x35,(byte)0xF0,(byte)0xF0,(byte)0xC5,0x11,(byte)0xD8,
+            0x09,0x66,0x08,0x00,0x20,0x0C,(byte)0x9A,0x66
+        };
+        ByteArrayOutputStream b=new ByteArrayOutputStream();
+        b.write(0x80); b.write(0); b.write(0);
+        b.write(0x10); b.write(0x00); b.write(0xFF); b.write(0xFF);
+        b.write(0x46); b.write(0x00); b.write(0x13);
+        b.write(target);
+        byte[] packet=b.toByteArray();
+        int len=packet.length; packet[1]=(byte)(len>>8); packet[2]=(byte)len;
+        return packet;
+    }
+
     byte[] readObexPacket(InputStream in)throws IOException{
         int op=in.read();if(op<0)throw new EOFException("انقطع اتصال Bluetooth.");
         int hi=in.read(),lo=in.read();if(hi<0||lo<0)throw new EOFException();
