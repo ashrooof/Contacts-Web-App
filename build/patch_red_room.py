@@ -291,7 +291,7 @@ if 'android:id="@+id/paired_panel"' not in h:
     h = h.replace(anchor, paired_panel + anchor, 1)
 h = h.replace('android:layout_below="@id/cv"', 'android:layout_below="@id/paired_panel"', 1) if False else h
 # The first occurrence belongs to paired_panel itself; target the RecyclerView line only.
-h = re.sub(r'(<android\\.support\\.v7\\.widget\\.RecyclerView[^>]*?)android:layout_below="@id/cv"', r'\\1android:layout_below="@id/paired_panel"', h, count=1)
+h = re.sub(r'(<android\.support\.v7\.widget\.RecyclerView[^>]*?)android:layout_below="@id/cv"', r'\1android:layout_below="@id/paired_panel"', h, count=1)
 write(home, h)
 
 # Load the expandable list after the native screen and Bluetooth adapter are initialized.
