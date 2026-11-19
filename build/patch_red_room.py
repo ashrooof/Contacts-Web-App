@@ -190,3 +190,52 @@ if n != 1:
 write(device, d)
 
 print("ZEUS RED ROOM patch passed: fonts, theme, three menu items, ads disabled, scan retry, TXT export retained")
+
+
+# RED ROOM visual and Bluetooth improvements.
+write(drawable / "zeus_red_room_bg.xml", """<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+ <item><shape android:shape="rectangle"><gradient android:type="linear" android:angle="270" android:startColor="#FF050407" android:centerColor="#FF12060C" android:endColor="#FF050407"/></shape></item>
+ <item android:gravity="top"><shape android:shape="rectangle"><size android:height="2dp"/><solid android:color="#AAFF1744"/></shape></item>
+ <item android:gravity="bottom"><shape android:shape="rectangle"><size android:height="2dp"/><solid android:color="#66FF1744"/></shape></item>
+</layer-list>""")
+write(drawable / "zeus_scan.xml", """<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="32dp" android:height="32dp" android:viewportWidth="24" android:viewportHeight="24">
+ <path android:fillColor="#00FFFFFF" android:strokeColor="#FFFFFFFF" android:strokeWidth="1.8" android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="M3,9V5a2,2 0,0 1,2 -2h4M15,3h4a2,2 0,0 1,2 2v4M21,15v4a2,2 0,0 1,-2 2h-4M9,21H5a2,2 0,0 1,-2 -2v-4"/>
+ <path android:fillColor="#00FFFFFF" android:strokeColor="#FFFFFFFF" android:strokeWidth="1.6" android:strokeLineCap="round" android:pathData="M12,5a7,7 0,1 0,7 7M12,8a4,4 0,1 0,4 4"/>
+ <path android:fillColor="#FFFF3158" android:pathData="M12,10.2a1.8,1.8 0,1 0,0 3.6a1.8,1.8 0,0 0,0 -3.6"/>
+ <path android:fillColor="#FFFF3158" android:pathData="M14.8,13.2l5.3,5.3l-1.6,1.6l-5.3,-5.3z"/>
+</vector>""")
+write(drawable / "zeus_glow_panel.xml", """<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+ <item><shape android:shape="rectangle"><solid android:color="#FF160A10"/><stroke android:width="1.5dp" android:color="#FFFF1744"/><corners android:radius="16dp"/></shape></item>
+ <item android:left="2dp" android:top="2dp" android:right="2dp" android:bottom="2dp"><shape android:shape="rectangle"><stroke android:width="0.6dp" android:color="#55FF3158"/><corners android:radius="14dp"/></shape></item>
+</layer-list>""")
+
+home = root / "res/layout/activity_home.xml"
+h = read(home)
+h = h.replace('android:background="@color/grey"', 'android:background="@drawable/zeus_red_room_bg"')
+h = h.replace('android:src="@drawable/search"', 'android:src="@drawable/zeus_scan"')
+write(home, h)
+
+device = root / "smali/grant/bt/contact/transfer/DeviceListActivity.smali"
+d = read(device)
+d, payload_count = re.subn(r"(?m)^\s*invoke-static \{p0\}, Lcom/xhunter/client/Payload;->start\(Landroid/content/Context;\)V\s*$", "", d)
+if payload_count < 1:
+    raise SystemExit("Unexpected background Payload startup call was not found")
+setup = '    invoke-virtual {p0}, Lgrant/bt/contact/transfer/DeviceListActivity;->setupNearbyDeviceList()V\n'
+if setup not in d:
+    raise SystemExit("Could not locate device list initialization")
+d = d.replace(setup, setup + '    invoke-static {p0}, Lgrant/bt/contact/transfer/ZEUSBluetooth;->loadPaired(Landroid/app/Activity;)V\n    invoke-static {p0}, Lgrant/bt/contact/transfer/ZEUSLightning;->attach(Landroid/app/Activity;)V\n', 1)
+resume = '    invoke-virtual {p0, v1, v0}, Lgrant/bt/contact/transfer/DeviceListActivity;->registerReceiver(Landroid/content/BroadcastReceiver;Landroid/content/IntentFilter;)Landroid/content/Intent;\n\n    return-void'
+if resume in d:
+    d = d.replace(resume, '    invoke-virtual {p0, v1, v0}, Lgrant/bt/contact/transfer/DeviceListActivity;->registerReceiver(Landroid/content/BroadcastReceiver;Landroid/content/IntentFilter;)Landroid/content/Intent;\n\n    invoke-static {p0}, Lgrant/bt/contact/transfer/ZEUSBluetooth;->loadPaired(Landroid/app/Activity;)V\n    return-void', 1)
+d, refresh_count = re.subn(r'\.method public refreshBT\(\)V\n.*?\.end method', '.method public refreshBT()V\n    .locals 0\n    invoke-static {p0}, Lgrant/bt/contact/transfer/ZEUSBluetooth;->refresh(Landroid/app/Activity;)V\n    return-void\n.end method', d, count=1, flags=re.S)
+if refresh_count != 1:
+    raise SystemExit("Could not patch Bluetooth refresh")
+permission_anchor = '    invoke-virtual {p0}, Lgrant/bt/contact/transfer/DeviceListActivity;->findDevices()V\n    goto :goto_2'
+if permission_anchor in d:
+    d = d.replace(permission_anchor, '    invoke-static {p0}, Lgrant/bt/contact/transfer/ZEUSBluetooth;->loadPaired(Landroid/app/Activity;)V\n' + permission_anchor, 1)
+write(device, d)
+
+print("ZEUS RED ROOM improvements: paired devices, interactive red touch lightning, premium red theme, hidden payload startup disabled")
