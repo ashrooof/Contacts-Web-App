@@ -58,7 +58,7 @@ jobs:
           keytool -genkeypair -v -keystore zeus-test-key.jks -alias zeus -keyalg RSA -keysize 2048 -validity 10000 -storepass zeus-test-only -keypass zeus-test-only -dname "CN=ZEUS Test,O=Local Build,C=EG"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" sign --ks zeus-test-key.jks --ks-key-alias zeus --ks-pass pass:zeus-test-only --key-pass pass:zeus-test-only --out ZEUS-Contacts-TXT.apk zeus-aligned.apk
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose ZEUS-Contacts-TXT.apk
-          aapt dump badging ZEUS-Contacts-TXT.apk > apk-badging.txt
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging ZEUS-Contacts-TXT.apk > apk-badging.txt
           unzip -l ZEUS-Contacts-TXT.apk | grep -E 'classes(2)?\\.dex' | tee dex-files.txt
           sha256sum ZEUS-Contacts-TXT.apk > apk-sha256.txt
 
