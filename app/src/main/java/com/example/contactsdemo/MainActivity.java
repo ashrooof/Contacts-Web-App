@@ -77,7 +77,7 @@ public class MainActivity extends Activity {
         TextView heading=text("جهات الاتصال المستلمة",16,ink,true);received.addView(heading);
         countView=text("0 جهة اتصال",12,muted,false);add(received,countView,5);
         preview=text("بعد مشاركة ملف VCF من الجهاز المصدر، ستظهر المعاينة هنا.",12,muted,false);preview.setPadding(dp(10),dp(10),dp(10),dp(10));preview.setBackground(round(Color.rgb(246,248,251),12));add(received,preview,10);
-        Button import=button("استيراد ملف VCF");add(received,import,12);import.setOnClickListener(v->picker());
+        Button importButton=button("استيراد ملف VCF");add(received,importButton,12);importButton.setOnClickListener(v->picker());
         saveButton=button("حفظ كـ TXT");add(root,saveButton,14);saveButton.setEnabled(false);saveButton.setAlpha(.45f);saveButton.setOnClickListener(v->save());
         add(root,text("ملاحظة: الاقتران لا يمنح التطبيق تلقائيًا حق قراءة دفتر الهاتف. على صاحب الجهاز مشاركة جهات الاتصال صراحةً؛ بعدها يمكن استيراد VCF وحفظه كـ TXT.",11,muted,false),12);
         setContentView(scroll);
