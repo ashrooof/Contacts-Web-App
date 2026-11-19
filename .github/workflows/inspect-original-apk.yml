@@ -1,0 +1,78 @@
+name: Inspect original APK
+
+on:
+  push:
+    branches: [zeus-txt-export]
+    paths:
+      - 'original/**'
+      - '.github/workflows/inspect-original-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install APK analysis tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y unzip
+          curl -fL https://github.com/iBotPeaches/Apktool/releases/download/v2.11.1/apktool_2.11.1.jar -o apktool.jar
+          printf '#!/usr/bin/env bash\nexec java -jar "$GITHUB_WORKSPACE/apktool.jar" "$@"\n' > apktool
+          chmod +x apktool
+          echo "$GITHUB_WORKSPACE" >> "$GITHUB_PATH"
+          curl -fL https://github.com/skylot/jadx/releases/download/v1.5.1/jadx-1.5.1.zip -o jadx.zip
+          unzip -q jadx.zip -d jadx
+          chmod +x jadx/bin/jadx
+
+      - name: Decode and decompile the original app
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="original/ASHRAF BASHA_1.4.apk"
+          test -s "$APK"
+          ./apktool d -f "$APK" -o decoded
+          ./jadx/bin/jadx --show-bad-code -d decompiled "$APK"
+          mkdir -p inspection
+          cp decoded/AndroidManifest.xml inspection/
+          cp -R decoded/res/layout inspection/layouts
+          cp -R decoded/res/values inspection/values
+          grep -RniE 'contact|bluetooth|shared|save|export|pbap' decompiled/sources > inspection/relevant-code-index.txt || true
+          find decompiled/sources -type f -name '*.java' -print > inspection/java-files.txt
+          find decoded/smali* -type f -name '*.smali' -print > inspection/smali-files.txt
+          {
+            echo "APK: $APK"
+            sha256sum "$APK"
+            echo
+            echo "Manifest package/activity summary:"
+            grep -nE 'manifest package=|activity|application' decoded/AndroidManifest.xml | head -100 || true
+            echo
+            echo "Layouts:"
+            find decoded/res/layout -maxdepth 1 -type f -printf '%f\n' | sort
+          } > inspection/summary.txt
+
+      - name: Upload decoded inspection bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: original-apk-inspection
+          path: |
+            inspection/
+            decoded/res/layout/
+            decoded/res/values/
+            decompiled/sources/
+            decoded/smali*/
+          if-no-files-found: error
+          retention-days: 7
