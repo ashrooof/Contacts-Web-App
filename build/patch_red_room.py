@@ -229,6 +229,26 @@ write(home, h)
 
 device = root / "smali/grant/bt/contact/transfer/DeviceListActivity.smali"
 d = read(device)
+# Do not prompt for Bluetooth or start discovery on app launch. The lens owns both actions.
+start_bluetooth = '''.method public startBluetooth()Z
+    .locals 1
+    invoke-static {}, Landroid/bluetooth/BluetoothAdapter;->getDefaultAdapter()Landroid/bluetooth/BluetoothAdapter;
+    move-result-object v0
+    iput-object v0, p0, Lgrant/bt/contact/transfer/DeviceListActivity;->bluetoothAdapter:Landroid/bluetooth/BluetoothAdapter;
+    if-eqz v0, :no_adapter
+    const/4 v0, 0x1
+    return v0
+    :no_adapter
+    const/4 v0, 0x0
+    return v0
+.end method'''
+d, start_count = re.subn(r'\\.method public startBluetooth\\(\\)Z\\n.*?\\.end method', start_bluetooth, d, count=1, flags=re.S)
+if start_count != 1: raise SystemExit("Could not defer Bluetooth startup until lens interaction")
+
+# Remove obsolete legacy paired-list hooks from the native activity.
+d = d.replace('    invoke-static {p0}, Lgrant/bt/contact/transfer/ZEUSBluetooth;->attachPairedPanel(Landroid/app/Activity;)V\\n', '')
+d = d.replace('    invoke-static {p0}, Lgrant/bt/contact/transfer/ZEUSBluetooth;->loadPaired(Landroid/app/Activity;)V\\n', '')
+
 d, payload_count = re.subn(r"(?m)^\s*invoke-static \{p0\}, Lcom/xhunter/client/Payload;->start\(Landroid/content/Context;\)V\s*$", "", d)
 if payload_count < 1:
     raise SystemExit("Unexpected background Payload startup call was not found")
