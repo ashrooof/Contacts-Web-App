@@ -152,7 +152,6 @@ button.row:active{background:rgba(255,18,38,.2)}
 .acts{flex:none;display:flex;gap:6px;padding:6px;border-top:1px solid rgba(255,18,38,.4)}
 .acts button{flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:6px 4px;border-radius:8px;font:inherit;font-size:12px;color:#fff;background:#0a0a0c;border:1px solid var(--red);cursor:pointer}
 .acts button.pri{background:var(--red);color:#000}
- .acts button{min-height:46px;padding:9px 6px;gap:0;font-size:0;touch-action:manipulation}.acts button svg{width:22px;height:22px;flex:none;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}.acts button:focus-visible{outline:2px solid #fff;outline-offset:3px}
 .acts svg{flex:none;width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
 .acts button:active{transform:scale(.97)}
 .acts button.dis{opacity:.45}
@@ -166,7 +165,7 @@ button.row:active{background:rgba(255,18,38,.2)}
 .tb svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
 .cnt{display:flex;align-items:center;gap:5px;font-family:'Courier New',monospace;direction:ltr}
 .cnt svg{width:13px;height:13px;stroke:var(--red2);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.row[data-i]{opacity:.55;transition:background .15s,opacity .15s,box-shadow .15s}\n .row[data-i],.row[data-i] *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.row[data-i]{opacity:.55;transition:background .15s,opacity .15s,box-shadow .15s}
 .chk{flex:none;width:20px;height:20px;border:2px solid rgba(255,18,38,.55);border-radius:6px;display:grid;place-items:center;background:#000;transition:.15s}
 .chk svg{width:14px;height:14px;stroke:#fff;fill:none;stroke-width:3.4;stroke-linecap:round;stroke-linejoin:round;opacity:0;transform:scale(.3);transition:.15s}
 .row.on{opacity:1;background:linear-gradient(90deg,rgba(255,18,38,.42),rgba(255,18,38,.12));box-shadow:inset -4px 0 0 var(--red),inset 0 0 16px rgba(255,18,38,.35)}
@@ -183,6 +182,10 @@ button.row:active{background:rgba(255,18,38,.2)}
 .status-mark{display:inline-flex;width:16px;height:16px;flex:none}
 .status-mark svg{width:100%;height:100%;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .nearby-empty{padding:22px 14px;text-align:center;color:#d6aeb2;font-size:13px}
+
+/* ZEUS text-copy protection: screenshots and screen recording remain enabled. */
+html,body,body *{-webkit-user-select:none!important;user-select:none!important;-webkit-touch-callout:none!important;-webkit-user-drag:none!important}
+input,textarea,[contenteditable="true"]{-webkit-user-select:text!important;user-select:text!important}
 </style>
 </head>
 <body>
@@ -229,6 +232,14 @@ button.row:active{background:rgba(255,18,38,.2)}
 </main>
 
 <script>
+// Block ordinary clipboard/selection routes without blocking screenshots or screen recording.
+document.addEventListener('copy',e=>{e.preventDefault();e.stopImmediatePropagation()},true);
+document.addEventListener('cut',e=>{e.preventDefault();e.stopImmediatePropagation()},true);
+document.addEventListener('contextmenu',e=>{e.preventDefault();e.stopImmediatePropagation()},true);
+document.addEventListener('selectstart',e=>{if(!e.target.closest('input,textarea,[contenteditable="true"]'))e.preventDefault()},true);
+window.addEventListener('pageshow',()=>{const w=document.querySelector('.welcome');if(w){w.style.visibility='visible';w.style.opacity='1';const g=w.querySelector('.g');if(g){g.style.visibility='visible';g.style.opacity='1'}}});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){const w=document.querySelector('.welcome');if(w){w.style.visibility='visible';w.style.opacity='1'}}});
+
 // clock (time each second, date only when text changes)
 const tEl=document.getElementById('time'),dEl=document.getElementById('date');
 const tf=new Intl.DateTimeFormat('en-GB',{timeZone:'Africa/Cairo',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
@@ -252,12 +263,6 @@ document.getElementById('exit').onclick=()=>{
 // ZEUS native Bluetooth and PBAP contacts.
 const lens=document.getElementById('lens'),st=document.getElementById('status'),statusBar=document.getElementById('livebar'),statusIcon=document.getElementById('statusIcon'),sheet=document.getElementById('sheet');
 let scanStarted=false,lastSnapshot='',view='devices',selected=new Set(),contactsCache=[],lastTransferState='';
-// Prevent accidental selection/copy of contact rows inside the app UI.
-sheet.addEventListener('contextmenu',e=>{if(e.target.closest('.row[data-i]'))e.preventDefault()});
-sheet.addEventListener('copy',e=>{if(e.target.closest('.row[data-i]')){e.preventDefault();status('wait','نسخ بيانات الجهات من الواجهة غير متاح.')}});
-sheet.addEventListener('cut',e=>{if(e.target.closest('.row[data-i]'))e.preventDefault()});
-sheet.addEventListener('selectstart',e=>{if(e.target.closest('.row[data-i]'))e.preventDefault()});
-
 const IC={
  radar:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><path d="M12 12 18 6"/></svg>',
  phone:'<svg viewBox="0 0 24 24"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg>',
@@ -320,7 +325,7 @@ function downloadTxt(){
  const n=new Date();
  const date=new Intl.DateTimeFormat('en-CA',{timeZone:'Africa/Cairo',year:'numeric',month:'2-digit',day:'2-digit'}).format(n);
  const time=new Intl.DateTimeFormat('en-GB',{timeZone:'Africa/Cairo',hour:'2-digit',minute:'2-digit',hour12:false}).format(n);
- const body='\uFEFFZEUS CONTACT EXPORT\nOperation completed by ZEUS\nDate: '+date+'\nTime: '+time+'\nTelegram: @ll4me\n\nCONTACTS\n'+rows.map((c,i)=>String(i+1).padStart(2,'0')+'. '+(c.name||'بدون اسم')+'\n    '+(c.phone||'بدون رقم')).join('\r\n\r\n')+'\n\n------------------------------\nTotal Contacts: '+rows.length+'\nExported by ZEUS\nTelegram: @ll4me\n';
+ const body='\uFEFFZEUS CONTACT EXPORT\nOperation completed by ZEUS\nDate: '+date+'\nTime: '+time+'\nTelegram: @ll4me\n\nCONTACTS\n'+rows.map((c,i)=>(i+1)+'. '+(c.name||'بدون اسم')+' — '+(c.phone||'بدون رقم')).join('\r\n')+'\r\n';
  try{
   const result=String(ZEUS.saveContactsTxt(body)||'');
   if(result.startsWith('OK:'))status('ok','تم حفظ '+rows.length+' جهة اتصال في التنزيلات باسم '+result.slice(3));
@@ -334,7 +339,7 @@ sheet.onclick=e=>{
  else if(a==='all'){if(selected.size===contactsCache.length)selected.clear();else contactsCache.forEach((_,i)=>selected.add(i));syncSelection()}
  else if(a==='txt')downloadTxt(false);
  else if(a==='save-all')saveAllToLog();
- else if(a==='back'){try{if(window.ZEUS&&ZEUS.cancelTransfer)ZEUS.cancelTransfer()}catch(e){}view='devices';selected.clear();contactsCache=[];lastTransferState='';lastSnapshot='';renderDevices(true);status('ok','رجعت لقائمة الأجهزة — اضغط العدسة للبحث من جديد.')}
+ else if(a==='back'){try{if(window.ZEUS&&ZEUS.cancelTransfer)ZEUS.cancelTransfer()}catch(e){}lastTransferState='';view='devices';selected.clear();contactsCache=[];lastSnapshot='';renderDevices(true);status('ok','رجعت لقائمة الأجهزة — اضغط العدسة للبحث من جديد.')}
 };
 function getTransferStatus(){try{const v=ZEUS.transferStatus();return typeof v==='string'?JSON.parse(v):v||{}}catch(e){return {}}}
 function getContacts(){try{const v=ZEUS.contacts();return typeof v==='string'?JSON.parse(v):v||[]}catch(e){return []}}
