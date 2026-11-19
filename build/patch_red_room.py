@@ -352,3 +352,71 @@ if anchor not in d:
 if 'ZEUSWebUI;->attach' not in d:
     d = d.replace(anchor, anchor + '\n    invoke-static {p0}, Lgrant/bt/contact/transfer/ZEUSWebUI;->attach(Landroid/app/Activity;)V', 1)
 write(smali, d)
+
+# Split Bluetooth discovery permission from contact access.
+device = root / "smali/grant/bt/contact/transfer/DeviceListActivity.smali"
+d = read(device)
+permission_method = '''.method protected requestAllPermissions()V
+    .locals 3
+    .annotation build Landroid/annotation/SuppressLint;
+        value = {"NewApi"}
+    .end annotation
+    sget v0, Landroid/os/Build$VERSION;->SDK_INT:I
+    const/16 v1, 0x17
+    if-lt v0, v1, :done
+    const-string v0, "android.permission.ACCESS_FINE_LOCATION"
+    invoke-static {p0, v0}, Landroid/support/v4/content/ContextCompat;->checkSelfPermission(Landroid/content/Context;Ljava/lang/String;)I
+    move-result v1
+    if-eqz v1, :done
+    const/4 v1, 0x1
+    new-array v2, v1, [Ljava/lang/String;
+    const/4 v1, 0x0
+    aput-object v0, v2, v1
+    const/4 v1, 0x1
+    invoke-virtual {p0, v2, v1}, Lgrant/bt/contact/transfer/DeviceListActivity;->requestPermissions([Ljava/lang/String;I)V
+    :done
+    return-void
+.end method'''
+d, n = re.subn(r'\.method protected requestAllPermissions\(\)V\n.*?\.end method', permission_method, d, count=1, flags=re.S)
+if n != 1: raise SystemExit("Could not split Bluetooth and contacts permissions")
+permission_result = '''.method public onRequestPermissionsResult(I[Ljava/lang/String;[I)V
+    .locals 2
+    invoke-super {p0, p1, p2, p3}, Landroid/support/v7/app/AppCompatActivity;->onRequestPermissionsResult(I[Ljava/lang/String;[I)V
+    const/4 v0, 0x1
+    if-ne p1, v0, :contacts_result
+    array-length v0, p3
+    if-lez v0, :location_denied
+    const/4 v0, 0x0
+    aget v0, p3, v0
+    if-nez v0, :location_denied
+    invoke-virtual {p0}, Lgrant/bt/contact/transfer/DeviceListActivity;->findDevices()V
+    goto :permission_done
+    :location_denied
+    const-string v0, "صلاحية الموقع مطلوبة للبحث عن أجهزة Bluetooth القريبة. يمكنك تفعيلها لاحقاً من الإعدادات."
+    invoke-virtual {p0, v0}, Lgrant/bt/contact/transfer/DeviceListActivity;->showSnackBar(Ljava/lang/String;)V
+    goto :permission_done
+    :contacts_result
+    const/4 v0, 0x2
+    if-ne p1, v0, :permission_done
+    array-length v0, p3
+    const/4 v1, 0x2
+    if-lt v0, v1, :contacts_denied
+    const/4 v0, 0x0
+    aget v0, p3, v0
+    if-nez v0, :contacts_denied
+    const/4 v0, 0x1
+    aget v0, p3, v0
+    if-nez v0, :contacts_denied
+    const-string v0, "تم منح صلاحية جهات الاتصال. يمكنك متابعة العملية التي طلبت الصلاحية من أجلها."
+    invoke-virtual {p0, v0}, Lgrant/bt/contact/transfer/DeviceListActivity;->showSnackBar(Ljava/lang/String;)V
+    goto :permission_done
+    :contacts_denied
+    const-string v0, "لم يتم منح صلاحية جهات الاتصال. البحث عن الأجهزة ما زال متاحاً."
+    invoke-virtual {p0, v0}, Lgrant/bt/contact/transfer/DeviceListActivity;->showSnackBar(Ljava/lang/String;)V
+    :permission_done
+    return-void
+.end method'''
+d, n = re.subn(r'\.method public onRequestPermissionsResult\(I\[Ljava/lang/String;\[I\)V\n.*?\.end method', permission_result, d, count=1, flags=re.S)
+if n != 1: raise SystemExit("Could not replace permission result handler")
+write(device, d)
+print("ZEUS permissions split: location for discovery; contacts permission independent")
