@@ -322,11 +322,11 @@ public final class ZEUSWebUI {
             String device = currentDeviceName == null ? "Bluetooth-Device" : currentDeviceName.trim();
             if (device.isEmpty()) device = "Bluetooth-Device";
             device = device.replaceAll("[\\\\/:*?\"<>|]+", "_").replaceAll("\\s+", "-");
-            if (device.length() > 48) device = device.substring(0, 48);
-            String date = new SimpleDateFormat("yyyy-MM-dd_HH-mm", Locale.US).format(new Date());
-            String fileName = "ZEUS-" + device + "-Contacts-" + date + ".txt";
+            if (device.length() > 64) device = device.substring(0, 64);
+            String date = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US).format(new Date());
+            String fileName = device + "-ZEUS-Contacts-" + date + ".txt";
             OutputStream output = null;
-            android.net.Uri created = null;
+            Uri created = null;
             try {
                 if (Build.VERSION.SDK_INT >= 29) {
                     ContentValues values = new ContentValues();
@@ -335,13 +335,14 @@ public final class ZEUSWebUI {
                     values.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/ZEUS");
                     values.put(MediaStore.MediaColumns.IS_PENDING, 1);
                     created = activity.getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
-                    if (created == null) return "ERROR:لم يتمكن Android من إنشاء الملف داخل التنزيلات.";
+                    if (created == null) return "ERROR:Android لم ينشئ ملف الحفظ داخل مجلد Downloads/ZEUS.";
                     output = activity.getContentResolver().openOutputStream(created, "w");
                 } else {
-                    File folder = activity.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
-                    if (folder == null) return "ERROR:مساحة التخزين غير متاحة.";
-                    if (!folder.exists() && !folder.mkdirs()) return "ERROR:تعذّر إنشاء مجلد الحفظ.";
-                    output = new FileOutputStream(new File(folder, fileName));
+                    File folder = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+                    if (folder == null || (!folder.exists() && !folder.mkdirs()))
+                        return "ERROR:تعذّر إنشاء مجلد التنزيلات.";
+                    File target = new File(folder, fileName);
+                    output = new FileOutputStream(target);
                 }
                 if (output == null) throw new IllegalStateException("تعذّر فتح ملف الحفظ.");
                 output.write(content.getBytes("UTF-8"));
@@ -351,7 +352,8 @@ public final class ZEUSWebUI {
                 if (Build.VERSION.SDK_INT >= 29 && created != null) {
                     ContentValues done = new ContentValues();
                     done.put(MediaStore.MediaColumns.IS_PENDING, 0);
-                    activity.getContentResolver().update(created, done, null, null);
+                    int updated = activity.getContentResolver().update(created, done, null, null);
+                    if (updated < 1) throw new IllegalStateException("لم يتم اعتماد الملف في التنزيلات.");
                 }
                 return "OK:" + fileName;
             } catch (Exception error) {
@@ -360,7 +362,6 @@ public final class ZEUSWebUI {
                 return "ERROR:فشل حفظ الملف (" + error.getClass().getSimpleName() + ").";
             }
         }
-
 
         @JavascriptInterface public void cancelTransfer() {
             pendingAddress = "";
