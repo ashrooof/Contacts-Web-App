@@ -45,7 +45,7 @@ jobs:
           sha256sum "$APK" > inspection/sha256.txt
           aapt dump badging "$APK" > inspection/aapt-badging.txt 2>&1 || true
           ./jadx/bin/jadx --show-bad-code -d decompiled "$APK" > inspection/jadx.log 2>&1 || true
-          java -jar apktool.jar d --no-res -f "$APK" -o decoded > inspection/apktool.log 2>&1 || true
+          java -jar apktool.jar d -f "$APK" -o decoded > inspection/apktool.log 2>&1 || true
           if [ -f decoded/AndroidManifest.xml ]; then
             cp decoded/AndroidManifest.xml inspection/AndroidManifest.xml
           fi
@@ -71,7 +71,7 @@ jobs:
       - name: Upload inspection bundle
         uses: actions/upload-artifact@v4
         with:
-          name: original-apk-inspection
+          name: apk-build-source-bundle
           path: |
             inspection/
             decompiled/sources/
