@@ -1,6 +1,12 @@
 name: Build ZEUS RED ROOM APK
 
 on:
+  push:
+    branches: [zeus-red-room]
+    paths:
+      - 'build/fonts/**'
+      - 'build/patch_red_room.py'
+      - '.github/workflows/build-zeus-apk.yml'
   workflow_dispatch:
 
 permissions:
