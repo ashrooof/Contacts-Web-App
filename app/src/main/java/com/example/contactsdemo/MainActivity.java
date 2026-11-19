@@ -5,9 +5,7 @@ import android.app.Activity;
 import android.bluetooth.*;
 import android.content.*;
 import android.content.pm.PackageManager;
-import android.net.Uri;
 import android.os.*;
-import android.provider.Settings;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
@@ -16,14 +14,19 @@ import android.widget.*;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class MainActivity extends Activity {
-    static final int BT_PERMISSION=10, PICK=11, SAVE=12, ENABLE_BT=13;
+    static final int BT_PERMISSION=10, ENABLE_BT=13;
+    static final UUID PBAP_UUID=UUID.fromString("0000112f-0000-1000-8000-00805f9b34fb");
     BluetoothAdapter adapter;
     LinearLayout deviceList;
     TextView status, btState, preview, countView;
     Button powerButton, saveButton;
-    String exportText="", deviceName="Bluetooth_Device";
+    final Map<String,BluetoothDevice> discovered=new LinkedHashMap<>();
+    final ExecutorService worker=Executors.newSingleThreadExecutor();
+    String exportText="", deviceName="Bluetooth_Contacts";
     int count=0, blue=Color.rgb(42,94,207), ink=Color.rgb(25,32,42), muted=Color.rgb(102,113,128);
     boolean receiverRegistered=false, scanning=false;
 
@@ -32,17 +35,16 @@ public class MainActivity extends Activity {
             String action=i.getAction();
             if(BluetoothDevice.ACTION_FOUND.equals(action)){
                 BluetoothDevice d=i.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-                if(d!=null) addDevice(d,"قريب منك");
+                if(d!=null) addDiscovered(d);
             } else if(BluetoothAdapter.ACTION_DISCOVERY_FINISHED.equals(action)){
-                scanning=false; status.setText("انتهى البحث. اضغط على جهاز للاقتران.");
+                scanning=false; status.setText(discovered.isEmpty()?"لم يتم العثور على أجهزة قابلة للاكتشاف.":"انتهى البحث. اختر جهازًا للاتصال.");
             } else if(BluetoothDevice.ACTION_BOND_STATE_CHANGED.equals(action)){
                 BluetoothDevice d=i.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
                 int state=i.getIntExtra(BluetoothDevice.EXTRA_BOND_STATE,BluetoothDevice.ERROR);
-                if(state==BluetoothDevice.BOND_BONDED && d!=null){
-                    String n=safeName(d); deviceName=safeFileName(n);
-                    status.setText("تم الاقتران مع "+n+". مشاركة جهات الاتصال تحتاج موافقة صاحب الجهاز.");
-                } else if(state==BluetoothDevice.BOND_NONE && d!=null){
-                    status.setText("لم يكتمل الاقتران مع "+safeName(d)+".");
+                if(d!=null && discovered.containsKey(d.getAddress())){
+                    addDiscovered(d);
+                    if(state==BluetoothDevice.BOND_BONDED) status.setText("تم الاقتران مع "+safeName(d)+". اضغط «سحب جهات الاتصال» لطلب الوصول عبر Bluetooth.");
+                    else if(state==BluetoothDevice.BOND_NONE) status.setText("لم يكتمل الاقتران مع "+safeName(d)+".");
                 }
             } else if(BluetoothAdapter.ACTION_STATE_CHANGED.equals(action)){
                 updatePowerUi();
@@ -51,35 +53,32 @@ public class MainActivity extends Activity {
         }
     };
 
-    @Override public void onCreate(Bundle b){super.onCreate(b);adapter=BluetoothAdapter.getDefaultAdapter();buildUi();registerBtReceiver();updatePowerUi();receive(getIntent());}
-    @Override protected void onNewIntent(Intent i){super.onNewIntent(i);setIntent(i);receive(i);}
-    @Override protected void onDestroy(){stopScan();if(receiverRegistered){try{unregisterReceiver(btReceiver);}catch(Exception ignored){}receiverRegistered=false;}super.onDestroy();}
+    @Override public void onCreate(Bundle b){super.onCreate(b);adapter=BluetoothAdapter.getDefaultAdapter();buildUi();registerBtReceiver();updatePowerUi();}
+    @Override protected void onDestroy(){stopScan();if(receiverRegistered){try{unregisterReceiver(btReceiver);}catch(Exception ignored){}}worker.shutdownNow();super.onDestroy();}
 
     void buildUi(){
         ScrollView scroll=new ScrollView(this);
         LinearLayout root=new LinearLayout(this);root.setOrientation(1);root.setPadding(dp(20),dp(26),dp(20),dp(26));root.setBackgroundColor(Color.rgb(246,248,251));scroll.addView(root);
         TextView brand=text("BT / CONTACTS",12,blue,true);brand.setLetterSpacing(.14f);root.addView(brand);
         add(root,text("Bluetooth Collector",27,ink,true),8);
-        add(root,text("اقترن بالأجهزة القريبة، واستقبل جهات الاتصال التي يشاركها صاحب الجهاز بموافقته.",14,muted,false),8);
+        add(root,text("اكتشف الأجهزة القريبة، اقترن بها، واطلب نقل جهات الاتصال مباشرةً بموافقة صاحب الجهاز.",14,muted,false),8);
         LinearLayout powerCard=card();add(root,powerCard,20);
-        LinearLayout row=new LinearLayout(this);row.setGravity(android.view.Gravity.CENTER_VERTICAL);row.setOrientation(0);powerCard.addView(row);
+        LinearLayout row=new LinearLayout(this);row.setGravity(android.view.Gravity.CENTER_VERTICAL);powerCard.addView(row);
         LinearLayout labels=new LinearLayout(this);labels.setOrientation(1);row.addView(labels,new LinearLayout.LayoutParams(0,-2,1));
         labels.addView(text("Bluetooth",17,ink,true));
         btState=text("جارٍ التحقق من الحالة",12,muted,false);labels.addView(btState);
-        powerButton=button("تشغيل البلوتوث");row.addView(powerButton);
-        powerButton.setOnClickListener(v->toggleBluetooth());
-        add(root,text("الأجهزة القريبة",17,ink,true),22);
-        add(root,text("اضغط على اسم الجهاز لبدء الاقتران. سيظهر طلب الاقتران على الجهاز الآخر.",12,muted,false),5);
+        powerButton=button("تشغيل البلوتوث");row.addView(powerButton);powerButton.setOnClickListener(v->toggleBluetooth());
+        add(root,text("الأجهزة المكتشفة الآن",17,ink,true),22);
+        add(root,text("القائمة دي بتعرض الأجهزة اللي اتكتشفت في البحث الحالي فقط، ومش بتعرض الأجهزة القديمة المقترنة.",12,muted,false),5);
         deviceList=new LinearLayout(this);deviceList.setOrientation(1);add(root,deviceList,10);
-        Button scan=button("إعادة البحث عن الأجهزة");add(root,scan,12);scan.setOnClickListener(v->startScan());
-        status=text("فعّل Bluetooth لبدء البحث.",13,blue,true);add(root,status,16);
+        Button scan=button("بحث عن الأجهزة القريبة");add(root,scan,12);scan.setOnClickListener(v->startScan());
+        status=text("فعّل Bluetooth ثم ابدأ البحث.",13,blue,true);add(root,status,16);
         LinearLayout received=card();add(root,received,16);
-        TextView heading=text("جهات الاتصال المستلمة",16,ink,true);received.addView(heading);
+        received.addView(text("جهات الاتصال المستلمة",16,ink,true));
         countView=text("0 جهة اتصال",12,muted,false);add(received,countView,5);
-        preview=text("بعد مشاركة ملف VCF من الجهاز المصدر، ستظهر المعاينة هنا.",12,muted,false);preview.setPadding(dp(10),dp(10),dp(10),dp(10));preview.setBackground(round(Color.rgb(246,248,251),12));add(received,preview,10);
-        Button importButton=button("استيراد ملف VCF");add(received,importButton,12);importButton.setOnClickListener(v->picker());
-        saveButton=button("حفظ كـ TXT");add(root,saveButton,14);saveButton.setEnabled(false);saveButton.setAlpha(.45f);saveButton.setOnClickListener(v->save());
-        add(root,text("ملاحظة: الاقتران لا يمنح التطبيق تلقائيًا حق قراءة دفتر الهاتف. على صاحب الجهاز مشاركة جهات الاتصال صراحةً؛ بعدها يمكن استيراد VCF وحفظه كـ TXT.",11,muted,false),12);
+        preview=text("بعد نجاح النقل المباشر ستظهر معاينة الأسماء والأرقام هنا.",12,muted,false);preview.setPadding(dp(10),dp(10),dp(10),dp(10));preview.setBackground(round(Color.rgb(246,248,251),12));add(received,preview,10);
+        saveButton=button("حفظ جهات الاتصال كـ TXT");add(root,saveButton,14);saveButton.setEnabled(false);saveButton.setAlpha(.45f);saveButton.setOnClickListener(v->save());
+        add(root,text("النقل المباشر يستخدم خدمة Bluetooth PBAP إذا كان الجهاز الآخر يدعمها ويسمح بالوصول. قد يظهر طلب موافقة على الجهاز الآخر؛ بعض الأجهزة أو أنظمة iPhone لا تتيح النقل بهذه الطريقة.",11,muted,false),12);
         setContentView(scroll);
     }
 
@@ -91,9 +90,8 @@ public class MainActivity extends Activity {
     void toggleBluetooth(){
         if(adapter==null){status.setText("هذا الهاتف لا يدعم Bluetooth.");return;}
         if(!hasPermissions())return;
-        try{if(adapter.isEnabled()){stopScan();if(Build.VERSION.SDK_INT<33){adapter.disable();}else{startActivity(new Intent(Settings.ACTION_BLUETOOTH_SETTINGS));status.setText("أوقف Bluetooth من إعدادات النظام إذا أردت.");}}
-            else startActivityForResult(new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE),ENABLE_BT);
-        }catch(SecurityException e){status.setText("إذن Bluetooth غير متاح.");}
+        try{if(adapter.isEnabled()){stopScan();if(Build.VERSION.SDK_INT<33)adapter.disable();else{startActivity(new Intent(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS));status.setText("أوقف Bluetooth من إعدادات النظام.");}}
+        else startActivityForResult(new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE),ENABLE_BT);}catch(Exception e){status.setText("تعذّر تغيير حالة Bluetooth.");}
     }
     boolean hasPermissions(){
         if(Build.VERSION.SDK_INT>=31){
@@ -107,68 +105,126 @@ public class MainActivity extends Activity {
         return true;
     }
     void updatePowerUi(){
-        if(adapter==null){btState.setText("غير مدعوم");powerButton.setText("غير متاح");powerButton.setEnabled(false);return;}
-        try{boolean on=adapter.isEnabled();btState.setText(on?"مفعّل":"متوقف");powerButton.setText(on?"Bluetooth مفعّل":"تشغيل Bluetooth");if(on)showPaired();}catch(SecurityException e){btState.setText("بانتظار الإذن");}
+        if(adapter==null){btState.setText("غير مدعوم");powerButton.setEnabled(false);return;}
+        try{boolean on=adapter.isEnabled();btState.setText(on?"مفعّل":"متوقف");powerButton.setText(on?"Bluetooth مفعّل":"تشغيل Bluetooth");}catch(SecurityException e){btState.setText("بانتظار الإذن");}
     }
     void startScan(){
         if(adapter==null){status.setText("هذا الهاتف لا يدعم Bluetooth.");return;}
         if(!hasPermissions())return;
         try{
             if(!adapter.isEnabled()){status.setText("شغّل Bluetooth أولًا.");return;}
-            stopScan();deviceList.removeAllViews();showPaired();
+            stopScan();discovered.clear();deviceList.removeAllViews();
             boolean started=adapter.startDiscovery();scanning=started;
-            status.setText(started?"جاري البحث عن الأجهزة القريبة…":"تعذّر بدء البحث. جرّب مرة أخرى.");
+            status.setText(started?"جاري البحث عن الأجهزة القريبة…":"تعذّر بدء البحث. تأكد من الأذونات وحاول مرة أخرى.");
         }catch(SecurityException e){status.setText("تأكد من منح أذونات Bluetooth.");}
     }
     void stopScan(){if(adapter!=null&&scanning){try{adapter.cancelDiscovery();}catch(Exception ignored){}scanning=false;}}
-    void showPaired(){
-        if(adapter==null||!hasPermissions())return;
-        try{Set<BluetoothDevice> bonded=adapter.getBondedDevices();for(BluetoothDevice d:bonded)addDevice(d,"مقترن بالفعل");}catch(SecurityException ignored){}
-    }
-    void addDevice(BluetoothDevice d,String subtitle){
+    void addDiscovered(BluetoothDevice d){
         try{
-            String addr=d.getAddress();for(int i=0;i<deviceList.getChildCount();i++){View v=deviceList.getChildAt(i);if(addr.equals(v.getTag()))return;}
-            LinearLayout item=new LinearLayout(this);item.setOrientation(0);item.setGravity(android.view.Gravity.CENTER_VERTICAL);item.setPadding(dp(13),dp(13),dp(13),dp(13));item.setBackground(round(Color.WHITE,14));item.setTag(addr);
-            LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.bottomMargin=dp(8);deviceList.addView(item,lp);
-            TextView icon=text("ᛒ",22,blue,true);item.addView(icon);
-            LinearLayout info=new LinearLayout(this);info.setOrientation(1);LinearLayout.LayoutParams ip=new LinearLayout.LayoutParams(0,-2,1);ip.leftMargin=dp(12);item.addView(info,ip);
-            info.addView(text(safeName(d),14,ink,true));info.addView(text(subtitle,11,muted,false));
-            TextView action=text(d.getBondState()==BluetoothDevice.BOND_BONDED?"متصل":"اقتران  ›",12,blue,true);item.addView(action);
-            item.setOnClickListener(v->pairDevice(d));
+            if(d.getBondState()==BluetoothDevice.BOND_BONDED) { /* Keep only devices found in this scan; paired devices are not preloaded. */ }
+            String addr=d.getAddress();discovered.put(addr,d);
+            LinearLayout item=new LinearLayout(this);item.setOrientation(1);item.setPadding(dp(13),dp(13),dp(13),dp(13));item.setBackground(round(Color.WHITE,14));
+            int old=-1;for(int i=0;i<deviceList.getChildCount();i++){Object tag=deviceList.getChildAt(i).getTag();if(addr.equals(tag)){old=i;break;}}
+            LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.bottomMargin=dp(8);
+            if(old>=0)deviceList.removeViewAt(old);
+            deviceList.addView(item,lp);item.setTag(addr);
+            LinearLayout line=new LinearLayout(this);line.setGravity(android.view.Gravity.CENTER_VERTICAL);item.addView(line);
+            line.addView(text("ᛒ",22,blue,true));
+            LinearLayout info=new LinearLayout(this);info.setOrientation(1);LinearLayout.LayoutParams ip=new LinearLayout.LayoutParams(0,-2,1);ip.leftMargin=dp(12);line.addView(info,ip);
+            info.addView(text(safeName(d),14,ink,true));
+            info.addView(text(d.getBondState()==BluetoothDevice.BOND_BONDED?"مقترن — اكتُشف الآن":"جهاز قريب — اكتُشف الآن",11,muted,false));
+            Button action=button(d.getBondState()==BluetoothDevice.BOND_BONDED?"سحب جهات الاتصال":"اقتران");line.addView(action);
+            action.setOnClickListener(v->{if(d.getBondState()==BluetoothDevice.BOND_BONDED)pullContacts(d);else pairDevice(d);});
+            if(d.getBondState()==BluetoothDevice.BOND_BONDED){Button pull=button("سحب جهات الاتصال");LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(-1,-2);bp.topMargin=dp(10);item.addView(pull,bp);pull.setOnClickListener(v->pullContacts(d));}
         }catch(SecurityException ignored){}
     }
     void pairDevice(BluetoothDevice d){
         if(!hasPermissions())return;stopScan();
-        try{
-            if(d.getBondState()==BluetoothDevice.BOND_BONDED){deviceName=safeFileName(safeName(d));status.setText("الجهاز مقترن. اطلب من صاحبه مشاركة جهات الاتصال كملف VCF.");return;}
-            status.setText("جارٍ طلب الاقتران مع "+safeName(d)+"…");boolean ok=d.createBond();if(!ok)status.setText("لم يبدأ طلب الاقتران. تأكد أن الجهاز قابل للاكتشاف.");
+        try{if(d.getBondState()==BluetoothDevice.BOND_BONDED){addDiscovered(d);return;}
+            status.setText("جارٍ إرسال طلب الاقتران إلى "+safeName(d)+"…");if(!d.createBond())status.setText("تعذّر بدء الاقتران. تأكد أن الجهاز ما زال قريبًا وقابلًا للاكتشاف.");
         }catch(SecurityException e){status.setText("تعذّر الاقتران بسبب أذونات Bluetooth.");}
     }
+    void pullContacts(BluetoothDevice d){
+        if(!hasPermissions())return;
+        try{if(d.getBondState()!=BluetoothDevice.BOND_BONDED){status.setText("اقترن بالجهاز أولًا.");return;}stopScan();status.setText("جارٍ الاتصال بخدمة نقل جهات الاتصال في "+safeName(d)+"…");}
+        catch(Exception e){status.setText("تعذّر بدء الاتصال.");return;}
+        worker.execute(()->{
+            BluetoothSocket socket=null;
+            try{
+                socket=d.createRfcommSocketToServiceRecord(PBAP_UUID);
+                socket.connect();
+                InputStream in=socket.getInputStream();OutputStream out=socket.getOutputStream();
+                byte[] connect={(byte)0x80,0,7,0x10,0, (byte)0xFF,(byte)0xFF};out.write(connect);out.flush();
+                byte[] response=readObexPacket(in);
+                if(response.length<3||(response[0]&255)!=0xA0)throw new IOException("الجهاز رفض اتصال PBAP.");
+                ByteArrayOutputStream data=new ByteArrayOutputStream();
+                byte[] name=unicodeHeader("telecom/pb.vcf");
+                byte[] type=header(0x42,"x-bt/phonebook\0".getBytes(StandardCharsets.US_ASCII));
+                byte[] app={0x04,0x08,0x01,0x00,0x02,0x00,0x04,0x00,(byte)0xFF,(byte)0xFF};
+                byte[] appHeader=header(0x4C,app);
+                ByteArrayOutputStream req=new ByteArrayOutputStream();req.write(0x83);req.write(0);req.write(0);req.write(name);req.write(type);req.write(appHeader);
+                byte[] packet=req.toByteArray();int len=packet.length;packet[1]=(byte)(len>>8);packet[2]=(byte)len;
+                out.write(packet);out.flush();
+                int code=0;
+                while(true){
+                    byte[] p=readObexPacket(in);if(p.length<3)throw new IOException("استجابة PBAP غير مكتملة.");
+                    code=p[0]&255;int pos=3;
+                    while(pos+2<=p.length){
+                        int id=p[pos]&255;
+                        if(id==0x48||id==0x49){int n=((p[pos+1]&255)<<8)|(p[pos+2]&255);if(n>=3&&pos+n<=p.length)data.write(p,pos+3,n-3);pos+=n;}
+                        else if((id&0xC0)==0x00){int n=((p[pos+1]&255)<<8)|(p[pos+2]&255);if(n<3||pos+n>p.length)break;pos+=n;}
+                        else if((id&0xC0)==0x40){int n=((p[pos+1]&255)<<8)|(p[pos+2]&255);if(n<3||pos+n>p.length)break;pos+=n;}
+                        else if((id&0xC0)==0x80)pos+=2;else break;
+                    }
+                    if(code==0xA0)break;
+                    if(code!=0x90)throw new IOException("الجهاز لم يسمح بقراءة دفتر الهاتف (PBAP).");
+                    out.write(new byte[]{(byte)0x83,0,3});out.flush();
+                }
+                String vcf=new String(data.toByteArray(),StandardCharsets.UTF_8);
+                String txt=parseVcard(vcf,safeName(d));
+                if(txt.isEmpty())throw new IOException("الجهاز لم يرجع جهات اتصال قابلة للقراءة.");
+                runOnUiThread(()->{deviceName=safeFileName(safeName(d));exportText=txt;count=countContacts(txt);countView.setText(count+" جهة اتصال");preview.setText(txt.length()>2200?txt.substring(0,2200)+"\n…":txt);saveButton.setEnabled(true);saveButton.setAlpha(1f);status.setText("تم استلام "+count+" جهة اتصال من "+safeName(d)+".");});
+            }catch(Exception e){String msg=e.getMessage()==null?"الجهاز لا يدعم النقل المباشر أو لم يمنح الإذن.":e.getMessage();runOnUiThread(()->status.setText("تعذّر سحب الجهات: "+msg));}
+            finally{if(socket!=null)try{socket.close();}catch(Exception ignored){}}
+        });
+    }
+    byte[] readObexPacket(InputStream in)throws IOException{
+        int op=in.read();if(op<0)throw new EOFException("انقطع اتصال Bluetooth.");
+        int hi=in.read(),lo=in.read();if(hi<0||lo<0)throw new EOFException();
+        int len=(hi<<8)|lo;if(len<3||len>65535)throw new IOException("حجم استجابة غير صالح.");
+        byte[] b=new byte[len];b[0]=(byte)op;b[1]=(byte)hi;b[2]=(byte)lo;
+        int off=3;while(off<len){int n=in.read(b,off,len-off);if(n<0)throw new EOFException();off+=n;}return b;
+    }
+    byte[] unicodeHeader(String s)throws IOException{
+        ByteArrayOutputStream b=new ByteArrayOutputStream();b.write(0x01);byte[] u=(s+"\0").getBytes("UTF-16BE");int n=u.length+3;b.write(n>>8);b.write(n);b.write(u);return b.toByteArray();
+    }
+    byte[] header(int id,byte[] value)throws IOException{ByteArrayOutputStream b=new ByteArrayOutputStream();b.write(id);int n=value.length+3;b.write(n>>8);b.write(n);b.write(value);return b.toByteArray();}
+    String parseVcard(String raw,String source){
+        StringBuilder out=new StringBuilder("Source: "+source+"\nReceived: "+new Date()+"\n\n");String name="",phone="";int total=0;
+        for(String line:raw.replace("\r","").split("\n")){
+            String u=line.toUpperCase(Locale.ROOT);
+            if(u.startsWith("BEGIN:VCARD")){name="";phone="";}
+            else if(u.startsWith("FN:"))name=line.substring(line.indexOf(':')+1).trim();
+            else if(u.startsWith("N:")&&name.isEmpty())name=line.substring(line.indexOf(':')+1).replace(';',' ').trim();
+            else if(u.startsWith("TEL")){String v=line.substring(line.indexOf(':')+1).trim();if(!v.isEmpty())phone+=(phone.isEmpty()?"":" | ")+v;}
+            else if(u.startsWith("END:VCARD")){if(!name.isEmpty()||!phone.isEmpty()){total++;out.append(total).append(". ").append(name.isEmpty()?"(بدون اسم)":name).append("\n").append(phone).append("\n\n");}}
+        }
+        return total==0?"":out.toString();
+    }
+    int countContacts(String txt){int n=0;for(String l:txt.split("\n"))if(l.matches("\\d+\\..*"))n++;return n;}
     String safeName(BluetoothDevice d){try{String n=d.getName();return n==null||n.trim().isEmpty()?"جهاز Bluetooth":n;}catch(Exception e){return "جهاز Bluetooth";}}
     String safeFileName(String s){return s.replaceAll("[^A-Za-z0-9_\\-\\u0600-\\u06FF ]","_").trim().replace(' ','_');}
-
     TextView text(String s,int size,int color,boolean bold){TextView t=new TextView(this);t.setText(s);t.setTextSize(size);t.setTextColor(color);if(bold)t.setTypeface(Typeface.DEFAULT,Typeface.BOLD);return t;}
     Button button(String s){Button b=new Button(this);b.setText(s);b.setTextColor(Color.WHITE);b.setTextSize(12);b.setAllCaps(false);b.setBackground(round(blue,13));return b;}
     LinearLayout card(){LinearLayout l=new LinearLayout(this);l.setOrientation(1);l.setPadding(dp(14),dp(14),dp(14),dp(14));l.setBackground(round(Color.WHITE,17));return l;}
     GradientDrawable round(int c,int r){GradientDrawable d=new GradientDrawable();d.setColor(c);d.setCornerRadius(dp(r));d.setStroke(dp(1),Color.rgb(228,233,240));return d;}
     void add(LinearLayout p,View v,int top){LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.topMargin=dp(top);p.addView(v,lp);}
     int dp(int x){return (int)(x*getResources().getDisplayMetrics().density+.5f);}
-
-    void picker(){Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("*/*");i.putExtra(Intent.EXTRA_MIME_TYPES,new String[]{"text/x-vcard","text/vcard","text/directory","application/octet-stream"});startActivityForResult(i,PICK);}
-    void receive(Intent i){if(i==null)return;Uri u=i.getData();if(u==null&&Intent.ACTION_SEND.equals(i.getAction())){if(i.getClipData()!=null&&i.getClipData().getItemCount()>0)u=i.getClipData().getItemAt(0).getUri();else{Object x=i.getParcelableExtra(Intent.EXTRA_STREAM);if(x instanceof Uri)u=(Uri)x;}}if(u!=null)importFile(u,deviceName.equals("Bluetooth_Device")?deviceFrom(i,u):deviceName);}
-    String deviceFrom(Intent i,Uri u){String n=i.getStringExtra(Intent.EXTRA_TITLE);if(n==null)n=u.getLastPathSegment();if(n==null)n=deviceName;return safeFileName(n.replaceAll("(?i)\\.vcf$",""));}
-    void importFile(Uri uri,String source){
-        try(InputStream in=getContentResolver().openInputStream(uri);BufferedReader r=new BufferedReader(new InputStreamReader(in,StandardCharsets.UTF_8))){
-            StringBuilder raw=new StringBuilder();String line;while((line=r.readLine())!=null)raw.append(line).append('\n');
-            ArrayList<String> lines=new ArrayList<>();for(String x:raw.toString().split("\\r?\\n")){if((x.startsWith(" ")||x.startsWith("\t"))&&!lines.isEmpty())lines.set(lines.size()-1,lines.get(lines.size()-1)+x.substring(1));else lines.add(x);}
-            StringBuilder body=new StringBuilder();String name="",phone="";int total=0;
-            for(String x:lines){String up=x.toUpperCase(Locale.ROOT);if(up.startsWith("BEGIN:VCARD")){name="";phone="";}else if(up.startsWith("FN:"))name=x.substring(x.indexOf(':')+1).trim();else if(up.startsWith("N:")&&name.isEmpty())name=x.substring(x.indexOf(':')+1).replace(';',' ').trim();else if(up.startsWith("TEL")){String v=x.substring(x.indexOf(':')+1).trim();if(!v.isEmpty())phone+=(phone.isEmpty()?"":" | ")+v;}else if(up.startsWith("END:VCARD")){if(!name.isEmpty()||!phone.isEmpty()){total++;body.append("Contact ").append(total).append('\n').append("Name: ").append(name.isEmpty()?"(No name)":name).append('\n').append("Phone: ").append(phone.isEmpty()?"(No phone)":phone).append("\n\n");}}}
-            if(total==0)throw new Exception("الملف لا يحتوي على جهات اتصال VCF قابلة للقراءة.");
-            count=total;deviceName=source.isEmpty()?"Bluetooth_Device":source;exportText="Device: "+deviceName+"\nImported: "+new Date()+"\nContacts: "+count+"\n\n"+body;
-            status.setText("تم استيراد "+count+" جهة اتصال من "+deviceName);countView.setText(count+" جهة اتصال");preview.setText(exportText.length()>1800?exportText.substring(0,1800)+"\n...":exportText);saveButton.setEnabled(true);saveButton.setAlpha(1f);
-        }catch(Exception e){status.setText("تعذّر قراءة الملف: "+(e.getMessage()==null?"ملف غير صالح":e.getMessage()));}
+    void save(){
+        if(exportText.isEmpty())return;
+        Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("text/plain");i.putExtra(Intent.EXTRA_TITLE,deviceName+"_contacts.txt");
+        startActivityForResult(i,12);
     }
-    void save(){if(exportText.isEmpty())return;Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("text/plain");i.putExtra(Intent.EXTRA_TITLE,deviceName+".txt");startActivityForResult(i,SAVE);}
-    @Override protected void onActivityResult(int req,int res,Intent data){super.onActivityResult(req,res,data);if(req==ENABLE_BT){updatePowerUi();if(res==RESULT_OK)startScan();return;}if(res!=RESULT_OK||data==null||data.getData()==null)return;if(req==PICK)importFile(data.getData(),deviceName.equals("Bluetooth_Device")?deviceFrom(data,data.getData()):deviceName);else if(req==SAVE){try(OutputStream o=getContentResolver().openOutputStream(data.getData())){o.write(exportText.getBytes(StandardCharsets.UTF_8));status.setText("تم حفظ "+deviceName+".txt — "+count+" جهة اتصال.");}catch(Exception e){status.setText("فشل حفظ الملف.");}}}
+    @Override protected void onActivityResult(int req,int res,Intent data){super.onActivityResult(req,res,data);if(req==ENABLE_BT){updatePowerUi();if(res==RESULT_OK)startScan();return;}if(req==12&&res==RESULT_OK&&data!=null&&data.getData()!=null){try(OutputStream o=getContentResolver().openOutputStream(data.getData())){o.write(exportText.getBytes(StandardCharsets.UTF_8));status.setText("تم حفظ ملف TXT بنجاح.");}catch(Exception e){status.setText("فشل حفظ الملف.");}}}
     @Override public void onRequestPermissionsResult(int q,String[] p,int[] g){super.onRequestPermissionsResult(q,p,g);if(q==BT_PERMISSION){boolean ok=true;for(int x:g)if(x!=PackageManager.PERMISSION_GRANTED)ok=false;if(ok){updatePowerUi();startScan();}else status.setText("لازم تسمح بأذونات Bluetooth للبحث والاقتران.");}}
 }
