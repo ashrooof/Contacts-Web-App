@@ -319,7 +319,7 @@ sheet.onclick=e=>{
  else if(a==='back'){view='devices';renderDevices(true);status('ok','يمكنك اختيار جهاز قريب آخر.')}
 };
 function getTransferStatus(){try{const v=ZEUS.transferStatus();return typeof v==='string'?JSON.parse(v):v||{}}catch(e){return {}}}
-function getContacts(){return parse('contacts')}
+function getContacts(){try{const v=ZEUS.contacts();return typeof v==='string'?JSON.parse(v):v||[]}catch(e){return []}}
 function pollBridge(){
  if(!window.ZEUS)return;
  const info=getTransferStatus();
