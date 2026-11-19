@@ -14,6 +14,7 @@ if changed != 1:
     raise SystemExit('Could not restore the original Android package identifier')
 manifest.write_text(manifest_text, encoding='utf-8')
 manifest_text = re.sub(r'android:icon="[^"]+"', 'android:icon="@drawable/zeus_icon"', manifest_text, count=1)
+manifest_text = manifest_text.replace('hack.aaashraf.mobileadsinitprovider', 'hack.aaashraf.zeus.mobileadsinitprovider')
 manifest.write_text(manifest_text, encoding='utf-8')
 icon_source = root / 'res/drawable-mdpi/ic_launcher.png'
 icon_target = root / 'res/drawable/zeus_icon.png'
