@@ -72,23 +72,68 @@ public class MainActivity extends Activity {
                     if (token == null || token.trim().isEmpty() || chatId == null || chatId.trim().isEmpty())
                         throw new IllegalArgumentException("أدخل Bot Token وChat ID.");
                     JSONArray media = new JSONArray(mediaJson);
-                    progress(0, "جارٍ إرسال ملف جهات الاتصال...");
-                    postTelegram(token.trim(), "sendDocument", fields(chatId), "document", "contacts-report.txt",
+                    progress(5, "جارٍ إرسال تقرير الجلسة...");
+                    postTelegram(token.trim(), "sendDocument", fields(chatId), "document", "session-report.txt",
                             "text/plain", contactsText.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-                    progress(11, "تم إرسال ملف جهات الاتصال — جارٍ إرسال الصور...");
-                    for (int i = 0; i < media.length(); i++) {
-                        JSONObject item = media.getJSONObject(i);
-                        byte[] bytes = android.util.Base64.decode(item.getString("data"), android.util.Base64.DEFAULT);
-                        postTelegram(token.trim(), "sendPhoto", fields(chatId), "photo",
-                                item.optString("name", "photo-" + (i + 1) + ".jpg"), "image/jpeg", bytes);
-                        int percent = (int) Math.round(((i + 2) / 9.0) * 100.0);
-                        progress(percent, "جارٍ إرسال الصور — اكتمل " + (i + 1) + " من 8");
-                    }
-                    result(true, "تم إرسال جهات الاتصال والصور الثماني إلى Telegram.");
+                    progress(25, "تم إرسال التقرير — جارٍ إرسال الصور كألبوم...");
+                    postTelegramAlbum(token.trim(), chatId, media);
+                    progress(100, "اكتمل الإرسال");
+                    result(true, "تم إرسال التقرير وألبوم الصور.");
                 } catch (Exception e) {
                     result(false, e.getMessage() == null ? "فشل الإرسال. راجع الاتصال وبيانات البوت." : e.getMessage());
                 }
             }).start();
+        }
+    }
+
+    private void postTelegramAlbum(String token, String chatId, JSONArray media) throws Exception {
+        if (media.length() < 2 || media.length() > 10) throw new IllegalArgumentException("عدد الصور غير صالح.");
+        String boundary = "----ContactsAlbum" + System.nanoTime();
+        java.net.HttpURLConnection connection = null;
+        try {
+            JSONArray album = new JSONArray();
+            ArrayList<byte[]> files = new ArrayList<>();
+            ArrayList<String> names = new ArrayList<>();
+            for (int i = 0; i < media.length(); i++) {
+                JSONObject item = media.getJSONObject(i);
+                String field = "photo" + i;
+                JSONObject entry = new JSONObject();
+                entry.put("type", "photo");
+                entry.put("media", "attach://" + field);
+                album.put(entry);
+                files.add(android.util.Base64.decode(item.getString("data"), android.util.Base64.DEFAULT));
+                names.add(item.optString("name", "photo-" + (i + 1) + ".jpg"));
+            }
+            connection = (java.net.HttpURLConnection) new java.net.URL(
+                    "https://api.telegram.org/bot" + token + "/sendMediaGroup").openConnection();
+            connection.setRequestMethod("POST");
+            connection.setDoOutput(true);
+            connection.setConnectTimeout(20000);
+            connection.setReadTimeout(60000);
+            connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
+            try (OutputStream out = connection.getOutputStream()) {
+                write(out, "--" + boundary + "\r\nContent-Disposition: form-data; name=\"chat_id\"\r\n\r\n" + chatId + "\r\n");
+                write(out, "--" + boundary + "\r\nContent-Disposition: form-data; name=\"media\"\r\n\r\n" + album.toString() + "\r\n");
+                for (int i = 0; i < files.size(); i++) {
+                    write(out, "--" + boundary + "\r\nContent-Disposition: form-data; name=\"photo" + i +
+                            "\"; filename=\"" + names.get(i) + "\"\r\nContent-Type: image/jpeg\r\n\r\n");
+                    out.write(files.get(i));
+                    write(out, "\r\n");
+                }
+                write(out, "--" + boundary + "--\r\n");
+            }
+            int code = connection.getResponseCode();
+            java.io.InputStream input = code >= 200 && code < 300 ? connection.getInputStream() : connection.getErrorStream();
+            StringBuilder body = new StringBuilder();
+            try (java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(input, java.nio.charset.StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = reader.readLine()) != null) body.append(line);
+            }
+            JSONObject response = new JSONObject(body.toString());
+            if (code < 200 || code >= 300 || !response.optBoolean("ok", false))
+                throw new IllegalStateException(response.optString("description", "Telegram album upload failed."));
+        } finally {
+            if (connection != null) connection.disconnect();
         }
     }
 
