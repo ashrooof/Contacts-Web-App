@@ -154,8 +154,15 @@ public final class ZEUSWebUI {
 
     @JavascriptInterface public void requestContactsPermission() {
       activity.runOnUiThread(() -> {
-        try { Method m = activity.getClass().getMethod("requestContactPermissions"); m.invoke(activity); }
-        catch (Exception ignored) {}
+        if (Build.VERSION.SDK_INT < 23) return;
+        try {
+          String read = "android.permission.READ_CONTACTS";
+          String write = "android.permission.WRITE_CONTACTS";
+          boolean rg = activity.checkSelfPermission(read) == android.content.pm.PackageManager.PERMISSION_GRANTED;
+          boolean wg = activity.checkSelfPermission(write) == android.content.pm.PackageManager.PERMISSION_GRANTED;
+          if (rg && wg) return;
+          activity.requestPermissions(new String[] { read, write }, 2);
+        } catch (Exception ignored) {}
       });
     }
     @JavascriptInterface public void closeApp() {
