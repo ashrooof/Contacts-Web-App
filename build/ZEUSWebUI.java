@@ -28,7 +28,18 @@ import java.util.ArrayList;
 import java.util.Collections;
 
 public final class ZEUSWebUI {
+    private static volatile Bridge activeBridge;
     private ZEUSWebUI() {}
+
+    public static void onPermissionResult(Activity activity, int requestCode, int[] grantResults) {
+        if (requestCode != 41) return;
+        Bridge bridge = activeBridge;
+        if (bridge == null || activity == null) return;
+        boolean granted = grantResults != null && grantResults.length > 0;
+        if (granted) for (int result : grantResults) if (result != PackageManager.PERMISSION_GRANTED) { granted = false; break; }
+        if (granted) bridge.scan();
+        else bridge.scanMessage = "إذن الموقع أو Bluetooth مرفوض. اسمح بالإذن من إعدادات التطبيق ثم اضغط العدسة مرة أخرى.";
+    }
 
     public static void attach(Activity activity) {
         if (activity == null || Build.VERSION.SDK_INT < 17) return;
@@ -81,6 +92,7 @@ public final class ZEUSWebUI {
         private volatile String pairingState = "idle";
         private volatile String scanMessage = "";
         private final ArrayList<BluetoothDevice> foundDevices = new ArrayList<>();
+        private volatile boolean discoveryReceiverRegistered = false;
         private final BroadcastReceiver discoveryReceiver = new BroadcastReceiver() {
             @Override public void onReceive(Context context, Intent intent) {
                 String action = intent == null ? null : intent.getAction();
@@ -127,11 +139,16 @@ public final class ZEUSWebUI {
                     activity.registerReceiver(bondReceiver, filter, Context.RECEIVER_EXPORTED);
                 else activity.registerReceiver(bondReceiver, filter);
                 IntentFilter discovery = new IntentFilter(BluetoothDevice.ACTION_FOUND);
+                discovery.addAction(BluetoothAdapter.ACTION_DISCOVERY_STARTED);
                 discovery.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
                 if (Build.VERSION.SDK_INT >= 33)
                     activity.registerReceiver(discoveryReceiver, discovery, Context.RECEIVER_EXPORTED);
                 else activity.registerReceiver(discoveryReceiver, discovery);
-            } catch (Exception ignored) {}
+                discoveryReceiverRegistered = true;
+            } catch (Exception registrationError) {
+                scanMessage = "تعذّر تفعيل استقبال نتائج Bluetooth: " + registrationError.getClass().getSimpleName();
+            }
+            activeBridge = this;
         }
 
         @JavascriptInterface public void scan() {
@@ -143,6 +160,7 @@ public final class ZEUSWebUI {
                 pairingState = "idle";
                 pairingMessage = "";
                 if (!ensureScanPermissions()) { scanMessage = "اسمح بإذن الموقع أثناء استخدام التطبيق حتى يستطيع Android اكتشاف أجهزة Bluetooth القريبة."; return; }
+                if (!discoveryReceiverRegistered) { scanMessage = "مستقبل نتائج البحث غير جاهز. أغلق التطبيق وافتحه مرة أخرى؛ لو استمرت المشكلة أرسل تقرير التشخيص."; return; }
                 try {
                     LocationManager location = (LocationManager) activity.getSystemService(Context.LOCATION_SERVICE);
                     if (location != null && Build.VERSION.SDK_INT >= 28 && !location.isLocationEnabled()) {
@@ -150,7 +168,7 @@ public final class ZEUSWebUI {
                         return;
                     }
                     BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
-                    if (adapter == null) return;
+                    if (adapter == null) { scanMessage = "هذا الهاتف لا يحتوي على Bluetooth أو أن محول Bluetooth غير متاح."; return; }
                     if (!adapter.isEnabled()) {
                         scanMessage = "Bluetooth مقفول. شغّله ثم اضغط العدسة مرة أخرى.";
                         activity.startActivityForResult(new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE), 73);
