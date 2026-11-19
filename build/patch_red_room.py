@@ -315,7 +315,7 @@ permission_method = '''.method protected requestAllPermissions()V
 d, n = re.subn(r'\.method protected requestAllPermissions\(\)V\n.*?\.end method', permission_method, d, count=1, flags=re.S)
 if n != 1: raise SystemExit("Could not disable startup permission prompts")
 permission_result = '''.method public onRequestPermissionsResult(I[Ljava/lang/String;[I)V
-    .locals 2
+    .locals 3
     invoke-super {p0, p1, p2, p3}, Landroid/support/v7/app/AppCompatActivity;->onRequestPermissionsResult(I[Ljava/lang/String;[I)V
     const/16 v0, 0x29
     if-ne p1, v0, :permission_done
@@ -324,8 +324,8 @@ permission_result = '''.method public onRequestPermissionsResult(I[Ljava/lang/St
     const/4 v1, 0x0
     :permission_check
     if-ge v1, v0, :permission_granted
-    aget v1, p3, v1
-    if-nez v1, :permission_denied
+    aget v2, p3, v1
+    if-nez v2, :permission_denied
     add-int/lit8 v1, v1, 0x1
     goto :permission_check
     :permission_granted
