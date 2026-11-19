@@ -61,20 +61,7 @@ jobs:
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging ZEUS-Contacts-TXT.apk > apk-badging.txt 2> aapt-diagnostics.txt || true
           java -jar apktool.jar d -f ZEUS-Contacts-TXT.apk -o verify-apk >/dev/null
           grep -q 'package="hack.aaashraf"' verify-apk/AndroidManifest.xml
-          unzip -Z1 ZEUS-Contacts-TXT.apk | grep -E '^classes(2)?\\.dex
-
-      - name: Upload signed APK and verification
-        uses: actions/upload-artifact@v4
-        with:
-          name: ZEUS-Contacts-TXT-tested-build
-          path: |
-            ZEUS-Contacts-TXT.apk
-            apk-badging.txt
-            dex-files.txt
-            apk-sha256.txt
-          if-no-files-found: error
-          retention-days: 30
- | tee dex-files.txt
+          unzip -Z1 ZEUS-Contacts-TXT.apk | grep -E '^classes(2)?\.dex$' | tee dex-files.txt
           sha256sum ZEUS-Contacts-TXT.apk > apk-sha256.txt
 
       - name: Upload signed APK and verification
@@ -84,7 +71,9 @@ jobs:
           path: |
             ZEUS-Contacts-TXT.apk
             apk-badging.txt
+            aapt-diagnostics.txt
             dex-files.txt
             apk-sha256.txt
+            verify-apk/AndroidManifest.xml
           if-no-files-found: error
           retention-days: 30
