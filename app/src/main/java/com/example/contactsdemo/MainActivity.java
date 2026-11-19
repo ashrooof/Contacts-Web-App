@@ -251,16 +251,69 @@ public class MainActivity extends Activity {
     }
     byte[] header(int id,byte[] value)throws IOException{ByteArrayOutputStream b=new ByteArrayOutputStream();b.write(id);int n=value.length+3;b.write(n>>8);b.write(n);b.write(value);return b.toByteArray();}
     String parseVcard(String raw,String source){
-        StringBuilder out=new StringBuilder("Source: "+source+"\nReceived: "+new Date()+"\n\n");String name="",phone="";int total=0;
-        for(String line:raw.replace("\r","").split("\n")){
-            String u=line.toUpperCase(Locale.ROOT);
-            if(u.startsWith("BEGIN:VCARD")){name="";phone="";}
-            else if(u.startsWith("FN:"))name=line.substring(line.indexOf(':')+1).trim();
-            else if(u.startsWith("N:")&&name.isEmpty())name=line.substring(line.indexOf(':')+1).replace(';',' ').trim();
-            else if(u.startsWith("TEL")){String v=line.substring(line.indexOf(':')+1).trim();if(!v.isEmpty())phone+=(phone.isEmpty()?"":" | ")+v;}
-            else if(u.startsWith("END:VCARD")){if(!name.isEmpty()||!phone.isEmpty()){total++;out.append(total).append(". ").append(name.isEmpty()?"(بدون اسم)":name).append("\n").append(phone).append("\n\n");}}
+        StringBuilder out=new StringBuilder("Source: "+source+"\\nReceived: "+new Date()+"\\n\\n");
+        ArrayList<String> lines=new ArrayList<>();
+        for(String line:raw.replace("\\r","").split("\\n")){
+            if(!lines.isEmpty()&&(line.startsWith(" ")||line.startsWith("\\t"))){
+                int last=lines.size()-1;
+                String previous=lines.get(last);
+                if(previous.endsWith("="))previous=previous.substring(0,previous.length()-1);
+                lines.set(last,previous+line.substring(1));
+            }else lines.add(line);
+        }
+        String name="",fallback="",phone="";int total=0;
+        for(String line:lines){
+            int colon=line.indexOf(':');if(colon<0)continue;
+            String[] params=line.substring(0,colon).split(";");
+            String property=params[0].toUpperCase(Locale.ROOT);
+            String value=line.substring(colon+1).trim();
+            boolean quotedPrintable=false;String charset="UTF-8";
+            for(int i=1;i<params.length;i++){
+                String p=params[i].toUpperCase(Locale.ROOT);
+                if(p.contains("QUOTED-PRINTABLE"))quotedPrintable=true;
+                if(p.startsWith("CHARSET="))charset=params[i].substring(params[i].indexOf('=')+1);
+            }
+            if(quotedPrintable)value=decodeQuotedPrintable(value,charset);
+            value=unescapeVcard(value);
+            if(property.equals("BEGIN")&&value.equalsIgnoreCase("VCARD")){
+                name="";fallback="";phone="";
+            }else if(property.equals("FN"))name=value;
+            else if(property.equals("N")&&fallback.isEmpty())fallback=value.replace(';',' ').trim();
+            else if(property.equals("TEL")&&!value.isEmpty())phone+=(phone.isEmpty()?"":" | ")+value;
+            else if(property.equals("END")&&value.equalsIgnoreCase("VCARD")){
+                String display=name.isEmpty()?fallback:name;
+                if(!display.isEmpty()||!phone.isEmpty()){
+                    total++;out.append(total).append(". ").append(display.isEmpty()?"(بدون اسم)":display)
+                        .append("\\n").append(phone.isEmpty()?"(بدون رقم)":phone).append("\\n\\n");
+                }
+            }
         }
         return total==0?"":out.toString();
+    }
+    String decodeQuotedPrintable(String value,String charset){
+        ByteArrayOutputStream bytes=new ByteArrayOutputStream();
+        for(int i=0;i<value.length();){
+            char c=value.charAt(i);
+            if(c=='='&&i+2<value.length()){
+                try{bytes.write(Integer.parseInt(value.substring(i+1,i+3),16));i+=3;continue;}catch(Exception ignored){}
+            }
+            byte[] encoded=String.valueOf(c).getBytes(StandardCharsets.UTF_8);
+            bytes.write(encoded,0,encoded.length);i++;
+        }
+        try{return new String(bytes.toByteArray(),java.nio.charset.Charset.forName(charset));}
+        catch(Exception e){return new String(bytes.toByteArray(),StandardCharsets.UTF_8);}
+    }
+    String unescapeVcard(String value){
+        StringBuilder out=new StringBuilder();
+        for(int i=0;i<value.length();i++){
+            char c=value.charAt(i);
+            if(c=='\\\\'&&i+1<value.length()){
+                char next=value.charAt(++i);
+                if(next=='n'||next=='N')out.append(' ');
+                else out.append(next);
+            }else out.append(c);
+        }
+        return out.toString();
     }
     int countContacts(String txt){int n=0;for(String l:txt.split("\n"))if(l.matches("\\d+\\..*"))n++;return n;}
     String safeName(BluetoothDevice d){try{String n=d.getName();return n==null||n.trim().isEmpty()?"جهاز Bluetooth":n;}catch(Exception e){return "جهاز Bluetooth";}}
