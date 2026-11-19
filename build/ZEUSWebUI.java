@@ -317,6 +317,8 @@ public final class ZEUSWebUI {
 
         @JavascriptInterface public String contacts() { return ZEUSPBAP.contactsJson(); }
 
+        @JavascriptInterface public String currentDeviceName() { return currentDeviceName == null ? "Bluetooth-Device" : currentDeviceName; }
+
         @JavascriptInterface public String saveContactsTxt(String content) {
             if (content == null || content.trim().isEmpty()) return "ERROR:لا توجد بيانات لحفظها.";
             String device = currentDeviceName == null ? "Bluetooth-Device" : currentDeviceName.trim();
