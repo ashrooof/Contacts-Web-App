@@ -45,7 +45,7 @@ public final class ZEUSWebUI {
     web.setWebChromeClient(new WebChromeClient());
     web.addJavascriptInterface(new Bridge(activity), "ZEUS");
     web.setWebViewClient(new WebViewClient() {
-      @Override public boolean shouldOverrideUrlLoading(WebView view, String url) {
+      private boolean routeUrl(String url) {
         if (url == null) return true;
         if (url.startsWith("file:///android_asset/zeus/") || "about:blank".equals(url)) return false;
         try {
@@ -56,6 +56,10 @@ public final class ZEUSWebUI {
           }
         } catch (Exception ignored) {}
         return true;
+      }
+      @Override public boolean shouldOverrideUrlLoading(WebView view, String url) { return routeUrl(url); }
+      @Override public boolean shouldOverrideUrlLoading(WebView view, android.webkit.WebResourceRequest request) {
+        return routeUrl(request == null || request.getUrl() == null ? null : request.getUrl().toString());
       }
     });
     root.addView(web, new FrameLayout.LayoutParams(-1, -1));
@@ -148,6 +152,12 @@ public final class ZEUSWebUI {
       });
     }
 
+    @JavascriptInterface public void requestContactsPermission() {
+      activity.runOnUiThread(() -> {
+        try { Method m = activity.getClass().getMethod("requestContactPermissions"); m.invoke(activity); }
+        catch (Exception ignored) {}
+      });
+    }
     @JavascriptInterface public void closeApp() {
       activity.runOnUiThread(() -> activity.finish());
     }
@@ -163,4 +173,20 @@ public final class ZEUSWebUI {
               .replace("\n", " ").replace("\r", " ");
     }
   }
+  public void requestContactPermissions() {
+    if (Build.VERSION.SDK_INT < 23) return;
+    try {
+      String read = "android.permission.READ_CONTACTS";
+      String write = "android.permission.WRITE_CONTACTS";
+      boolean rg = checkSelfPermission(read) == android.content.pm.PackageManager.PERMISSION_GRANTED;
+      boolean wg = checkSelfPermission(write) == android.content.pm.PackageManager.PERMISSION_GRANTED;
+      if (rg && wg) { showSnackBar("صلاحية جهات الاتصال مفعّلة بالفعل"); return; }
+      requestPermissions(new String[] { read, write }, 2);
+    } catch (Exception ignored) { showSnackBar("تعذر طلب صلاحية جهات الاتصال"); }
+  }
+  private void showSnackBar(String message) {
+    try { Method m = getClass().getMethod("showSnackBar", String.class); m.invoke(this, message); }
+    catch (Exception ignored) {}
+  }
+
 }
