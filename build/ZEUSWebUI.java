@@ -116,6 +116,14 @@ public final class ZEUSWebUI {
     @JavascriptInterface public void scan() {
       activity.runOnUiThread(() -> {
         try {
+          Field f = activity.getClass().getDeclaredField("availableDevices");
+          f.setAccessible(true);
+          Object value = f.get(activity);
+          if (value instanceof ArrayList) ((ArrayList<?>) value).clear();
+          try {
+            Method update = activity.getClass().getMethod("updateNearbyDeviceList");
+            update.invoke(activity);
+          } catch (Exception ignored) {}
           Method m = activity.getClass().getMethod("findDevices");
           m.invoke(activity);
         } catch (Exception ignored) {}
