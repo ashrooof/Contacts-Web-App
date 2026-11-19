@@ -10,6 +10,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.location.LocationManager;
 import android.net.Uri;
 import android.os.Build;
 import android.view.View;
@@ -143,6 +144,11 @@ public final class ZEUSWebUI {
                 pairingMessage = "";
                 if (!ensureScanPermissions()) { scanMessage = "اسمح بإذن الموقع أثناء استخدام التطبيق حتى يستطيع Android اكتشاف أجهزة Bluetooth القريبة."; return; }
                 try {
+                    LocationManager location = (LocationManager) activity.getSystemService(Context.LOCATION_SERVICE);
+                    if (location != null && Build.VERSION.SDK_INT >= 28 && !location.isLocationEnabled()) {
+                        scanMessage = "خدمة الموقع في الهاتف مقفولة. فعّل الموقع من شريط الإعدادات السريعة ثم أعد البحث.";
+                        return;
+                    }
                     BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
                     if (adapter == null) return;
                     if (!adapter.isEnabled()) {
