@@ -1,6 +1,7 @@
 from pathlib import Path
 import sys
 import re
+import shutil
 
 root = Path(sys.argv[1])
 activity = root / 'smali/grant/bt/contact/transfer/SharedContactsActivity.smali'
@@ -12,6 +13,13 @@ manifest_text, changed = re.subn(r'(<manifest\b[^>]*\bpackage=")[^"]*(")', r'\1h
 if changed != 1:
     raise SystemExit('Could not restore the original Android package identifier')
 manifest.write_text(manifest_text, encoding='utf-8')
+manifest_text = re.sub(r'android:icon="[^"]+"', 'android:icon="@drawable/zeus_icon"', manifest_text, count=1)
+manifest.write_text(manifest_text, encoding='utf-8')
+icon_source = root / 'res/drawable-mdpi/ic_launcher.png'
+icon_target = root / 'res/drawable/zeus_icon.png'
+if not icon_source.is_file():
+    raise SystemExit('Original launcher icon source is missing')
+shutil.copy2(icon_source, icon_target)
 
 s = activity.read_text(encoding='utf-8')
 marker = '.method public onBackPressed()V\n'
