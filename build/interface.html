@@ -119,6 +119,7 @@ main{position:relative;z-index:2;flex:1;display:flex;flex-direction:column;align
  padding:10px 18px;border-radius:999px;box-shadow:0 0 20px var(--red);transition:.3s}
 .toast.show{transform:translate(-50%,0);opacity:1}
 @media (max-height:560px){.zeus{font-size:clamp(60px,18vw,150px)}}
+.nearby{width:min(640px,100%);max-height:22vh;overflow:auto;border:1px solid rgba(255,18,38,.38);border-radius:12px;background:rgba(5,0,1,.88);padding:7px 10px;margin-top:7px}.nearby-head{display:flex;justify-content:space-between;align-items:center;color:#ff8792;font-size:12px;padding:3px 4px}.nearby-list{display:grid;gap:6px;margin-top:5px}.nearby-item{border:1px solid rgba(255,18,38,.3);background:#0a0507;color:#fff;border-radius:9px;padding:9px 11px;text-align:right;font:14px Sultan;display:flex;justify-content:space-between;align-items:center;width:100%}.nearby-item small{color:#ff6b78;font:10px monospace;direction:ltr}.nearby-empty{color:#aaa;font-size:12px;padding:8px;text-align:center}
 </style>
 </head>
 <body>
@@ -160,6 +161,7 @@ main{position:relative;z-index:2;flex:1;display:flex;flex-direction:column;align
       <span class="core"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg></span>
     </button>
     <div class="status" id="status">اضغط على العدسة للبحث عن الأجهزة</div>
+    <section class="nearby" id="nearby"><div class="nearby-head"><b>الأجهزة القريبة</b><span id="nearbyCount">0</span></div><div class="nearby-list" id="nearbyList"><div class="nearby-empty">ابدأ البحث لاكتشاف الأجهزة المتاحة</div></div></section>
   </div>
 </main>
 <div class="toast" id="toast"></div>
@@ -185,6 +187,22 @@ document.getElementById('exit').onclick=()=>{
 
 // ---- device scan (real Bluetooth chooser) ----
 const lens=document.getElementById('lens'),st=document.getElementById('status');
+const nearbyList=document.getElementById('nearbyList'),nearbyCount=document.getElementById('nearbyCount');
+let scanStarted=false,lastNearby='';
+function renderNearby(){
+  try{
+    const ds=JSON.parse(ZEUS.discoveredDevices()),key=JSON.stringify(ds);
+    if(key!==lastNearby){
+      lastNearby=key;nearbyCount.textContent=ds.length;nearbyList.innerHTML='';
+      if(!ds.length){const e=document.createElement('div');e.className='nearby-empty';e.textContent=scanStarted?'بدور على أجهزة قريبة...':'ابدأ البحث لاكتشاف الأجهزة المتاحة';nearbyList.appendChild(e)}
+      ds.forEach(d=>{const b=document.createElement('button');b.className='nearby-item';const n=document.createElement('span');n.textContent=d.name;const a=document.createElement('small');a.textContent=d.paired?'PAIRED':'AVAILABLE';b.append(n,a);b.onclick=()=>{ZEUS.connect(d.address);st.textContent=d.paired?'جاري الاتصال بـ '+d.name:'تم طلب الاقتران مع '+d.name};nearbyList.appendChild(b)});
+    }
+    const active=ZEUS.isDiscovering();lens.classList.toggle('on',active);
+    if(active){scanStarted=true;st.textContent='جاري البحث عن الأجهزة القريبة...'}
+    else if(scanStarted){st.textContent=ds.length?'اكتمل البحث — اختر جهازًا للاتصال':'انتهى البحث — لم يتم العثور على أجهزة'}
+  }catch(e){}
+}
+setInterval(renderNearby,1000);
 lens.onclick=async()=>{
   if(lens.classList.contains('on'))return;
   if(!navigator.bluetooth){st.textContent='المتصفح ده مش بيدعم البحث عن الأجهزة (جرّب Chrome على أندرويد أو الكمبيوتر)';return}
