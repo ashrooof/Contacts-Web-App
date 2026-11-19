@@ -196,7 +196,7 @@ d = replace_once(d,
     "retry scan after permissions")
 refresh = '''.method public refreshBT()V
     .locals 0
-    invoke-static {p0}, Lgrant/bt/contact/transfer/ZEUSBluetooth;->refresh(Lgrant/bt/contact/transfer/DeviceListActivity;)V
+    invoke-static {p0}, Lgrant/bt/contact/transfer/ZEUSBluetooth;->refresh(Landroid/app/Activity;)V
     return-void
 .end method'''
 d, n = re.subn(r'\.method public refreshBT\(\)V\n.*?\.end method', refresh, d, count=1, flags=re.S)
