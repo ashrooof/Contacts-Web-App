@@ -76,6 +76,7 @@ public final class ZEUSWebUI {
         private final Activity activity;
         private volatile String pendingAddress = "";
         private volatile String pairingMessage = "";
+        private volatile String pairingState = "idle";
         private final BroadcastReceiver bondReceiver = new BroadcastReceiver() {
             @Override public void onReceive(Context context, Intent intent) {
                 if (!BluetoothDevice.ACTION_BOND_STATE_CHANGED.equals(intent.getAction())) return;
@@ -86,9 +87,11 @@ public final class ZEUSWebUI {
                     if (state == BluetoothDevice.BOND_BONDED) {
                         pendingAddress = "";
                         pairingMessage = "";
+                        pairingState = "idle";
                         ZEUSPBAP.start(device);
                     } else if (state == BluetoothDevice.BOND_NONE) {
                         pendingAddress = "";
+                        pairingState = "error";
                         pairingMessage = "لم يكتمل الاقتران. تأكد من قبول طلب الاقتران على الجهاز الآخر.";
                     }
                 } catch (SecurityException ignored) {}
@@ -108,6 +111,9 @@ public final class ZEUSWebUI {
         @JavascriptInterface public void scan() {
             activity.runOnUiThread(() -> {
                 clearNearby();
+                pendingAddress = "";
+                pairingState = "idle";
+                pairingMessage = "";
                 if (!ensureScanPermissions()) return;
                 try {
                     BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
@@ -198,38 +204,44 @@ public final class ZEUSWebUI {
                 if (device.getBondState() == BluetoothDevice.BOND_BONDED) {
                     pendingAddress = "";
                     pairingMessage = "";
+                    pairingState = "idle";
                     ZEUSPBAP.start(device);
                     return "connecting";
                 }
                 pendingAddress = address;
+                pairingState = "pairing";
                 pairingMessage = "في انتظار قبول الاقتران على الجهاز الآخر...";
                 activity.runOnUiThread(() -> {
                     try {
                         if (adapter.isDiscovering()) adapter.cancelDiscovery();
                         if (!device.createBond()) {
                             pendingAddress = "";
+                            pairingState = "error";
                             pairingMessage = "تعذّر إرسال طلب الاقتران.";
                         }
                     } catch (Exception error) {
                         pendingAddress = "";
+                        pairingState = "error";
                         pairingMessage = "تعذّر بدء الاقتران. تحقق من قرب الجهاز.";
                     }
                 });
                 return "pairing";
             } catch (SecurityException denied) {
+                pairingState = "error";
                 pairingMessage = "إذن Bluetooth غير متاح. أعد البحث واسمح بإذن Bluetooth.";
                 return "error";
             } catch (Exception error) {
+                pairingState = "error";
                 pairingMessage = "تعذّر الوصول إلى الجهاز المحدد.";
                 return "error";
             }
         }
 
         @JavascriptInterface public String transferStatus() {
-            if (!pendingAddress.isEmpty()) {
+            if (!pendingAddress.isEmpty() || "error".equals(pairingState)) {
                 try {
                     org.json.JSONObject result = new org.json.JSONObject();
-                    result.put("state", "pairing");
+                    result.put("state", pendingAddress.isEmpty() ? "error" : "pairing");
                     result.put("message", pairingMessage);
                     result.put("count", 0);
                     return result.toString();
@@ -243,6 +255,7 @@ public final class ZEUSWebUI {
         @JavascriptInterface public void cancelTransfer() {
             pendingAddress = "";
             pairingMessage = "";
+            pairingState = "idle";
             ZEUSPBAP.cancel();
         }
 
