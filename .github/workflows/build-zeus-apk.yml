@@ -31,7 +31,7 @@ jobs:
           set -euo pipefail
           export ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
           export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
-          yes | sdkmanager --licenses >/dev/null
+          sdkmanager --licenses </dev/null >/dev/null || true
           sdkmanager "platforms;android-35" "build-tools;35.0.0"
           curl -fL https://github.com/iBotPeaches/Apktool/releases/download/v2.11.1/apktool_2.11.1.jar -o apktool.jar
           curl -fL https://github.com/JesusFreke/smali/releases/download/v2.5.2/baksmali-2.5.2.jar -o baksmali.jar
