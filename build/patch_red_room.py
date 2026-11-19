@@ -307,3 +307,47 @@ if 'ZEUSBluetooth;->attachPairedPanel' not in d:
         raise SystemExit("Could not locate onCreate device list setup")
     d = d.replace(setup, setup + '    invoke-static {p0}, Lgrant/bt/contact/transfer/ZEUSBluetooth;->attachPairedPanel(Landroid/app/Activity;)V\\n', 1)
 write(device, d)
+
+
+# Install the exact ZEUS Interface web design as a local, offline Android WebView.
+web_source = repo / "build/interface.html"
+if not web_source.is_file() or web_source.stat().st_size < 10000:
+    raise SystemExit("Missing original Interface design source")
+assets = root / "assets/zeus"
+assets.mkdir(parents=True, exist_ok=True)
+shutil.copy2(web_source, assets / "interface.html")
+
+# Replace browser-only Web Bluetooth with the native Android bridge.
+page = read(assets / "interface.html")
+page = page.replace('if(!navigator.bluetooth){st.textContent=\'المتصفح ده مش بيدعم البحث عن الأجهزة (جرّب Chrome على أندرويد أو الكمبيوتر)\';return}', 'if(!window.ZEUS){st.textContent=\'تعذر تشغيل واجهة ZEUS الأصلية\';return}')
+start = page.find('  try{\n    const d=await navigator.bluetooth.requestDevice')
+end = page.find('  lens.classList.remove(\'on\');\n};', start)
+if start < 0 or end < 0:
+    raise SystemExit("Could not locate browser Bluetooth scan block")
+page = page[:start] + "  try{ ZEUS.scan(); st.textContent='جاري البحث عن الأجهزة القريبة...'; }catch(e){st.textContent='تعذّر بدء البحث';}\\n" + page[end:]
+# Native paired-device drawer, visually integrated with the original design.
+page = page.replace('</style>', '''
+.paired{width:min(640px,100%);max-height:26vh;overflow:auto;border:1px solid rgba(255,18,38,.55);border-radius:12px;background:rgba(5,0,1,.94);box-shadow:0 0 18px rgba(255,18,38,.18);padding:8px 10px}
+.paired-head{display:flex;justify-content:space-between;align-items:center;color:#ff6b78;font-size:14px;cursor:pointer;padding:3px 4px}
+.paired-list{display:none;margin-top:7px;gap:6px}.paired.open .paired-list{display:grid}
+.paired-item{border:1px solid rgba(255,18,38,.35);background:#0a0507;color:#fff;border-radius:9px;padding:9px 11px;text-align:right;font:14px Sultan;display:flex;justify-content:space-between;align-items:center}
+.paired-item small{color:#ff6b78;font:10px monospace;direction:ltr}
+</style>''',1)
+page = page.replace('<div class="status" id="status">اضغط على العدسة للبحث عن الأجهزة</div>', '<div class="status" id="status">اضغط على العدسة للبحث عن الأجهزة</div>\\n    <section class="paired" id="paired"><div class="paired-head" id="pairedHead"><b>الأجهزة المقترنة</b><span id="pairedCount">0</span></div><div class="paired-list" id="pairedList"></div></section>')
+page = page.replace('// ---- menu ----', '''// ---- Android paired devices ----
+const pairedBox=document.getElementById('paired'),pairedHead=document.getElementById('pairedHead'),pairedList=document.getElementById('pairedList');
+function renderPaired(){try{const ds=JSON.parse(ZEUS.pairedDevices());document.getElementById('pairedCount').textContent=ds.length;pairedList.innerHTML='';if(!ds.length){pairedList.textContent='لا توجد أجهزة مقترنة محفوظة';return}ds.forEach(d=>{const b=document.createElement('button');b.className='paired-item';const n=document.createElement('span');n.textContent=d.name;const a=document.createElement('small');a.textContent='PAIRED';b.append(n,a);b.onclick=()=>{ZEUS.connect(d.address);st.textContent='جاري الاتصال بـ '+d.name};pairedList.appendChild(b)})}catch(e){}}
+pairedHead.onclick=()=>pairedBox.classList.toggle('open');renderPaired();
+// ---- menu ----''')
+page = page.replace('window.close();', 'if(window.ZEUS)ZEUS.closeApp();')
+write(assets / "interface.html", page)
+
+# Place the WebView above the legacy screen after its native Bluetooth setup.
+smali = root / "smali/grant/bt/contact/transfer/DeviceListActivity.smali"
+d = read(smali)
+anchor = '    invoke-static {p0}, Lgrant/bt/contact/transfer/ZEUSLightning;->attach(Landroid/app/Activity;)V'
+if anchor not in d:
+    raise SystemExit("Missing ZEUS lightning initialization anchor")
+if 'ZEUSWebUI;->attach' not in d:
+    d = d.replace(anchor, anchor + '\\n    invoke-static {p0}, Lgrant/bt/contact/transfer/ZEUSWebUI;->attach(Landroid/app/Activity;)V', 1)
+write(smali, d)
