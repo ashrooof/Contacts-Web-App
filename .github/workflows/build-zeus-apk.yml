@@ -1,0 +1,74 @@
+name: Build ZEUS TXT APK
+
+on:
+  push:
+    branches: [zeus-txt-export]
+    paths:
+      - 'original/**'
+      - 'build/**'
+      - '.github/workflows/build-zeus-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android build tools and Apktool
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          curl -fL https://github.com/iBotPeaches/Apktool/releases/download/v2.11.1/apktool_2.11.1.jar -o apktool.jar
+          curl -fL https://github.com/JesusFreke/smali/releases/download/v2.5.2/baksmali-2.5.2.jar -o baksmali.jar
+
+      - name: Decode and patch original APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s "original/ASHRAF BASHA_1.4.apk"
+          java -jar apktool.jar d -f "original/ASHRAF BASHA_1.4.apk" -o decoded
+          python3 build/patch_apk.py decoded
+          mkdir -p classes dex-out
+          javac -source 8 -target 8 -classpath "$ANDROID_HOME/platforms/android-35/android.jar" -d classes build/ZEUSExport.java
+          "$ANDROID_HOME/build-tools/35.0.0/d8" --lib "$ANDROID_HOME/platforms/android-35/android.jar" --min-api 21 --output dex-out classes/grant/bt/contact/transfer/ZEUSExport.class
+          java -jar baksmali.jar disassemble dex-out/classes.dex -o decoded/smali_classes2
+          java -jar apktool.jar b decoded -o zeus-unsigned.apk
+
+      - name: Align and sign APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -f -p 4 zeus-unsigned.apk zeus-aligned.apk
+          keytool -genkeypair -v -keystore zeus-test-key.jks -alias zeus -keyalg RSA -keysize 2048 -validity 10000 -storepass zeus-test-only -keypass zeus-test-only -dname "CN=ZEUS Test,O=Local Build,C=EG"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" sign --ks zeus-test-key.jks --ks-key-alias zeus --ks-pass pass:zeus-test-only --key-pass pass:zeus-test-only --out ZEUS-Contacts-TXT.apk zeus-aligned.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose ZEUS-Contacts-TXT.apk
+          aapt dump badging ZEUS-Contacts-TXT.apk > apk-badging.txt
+          unzip -l ZEUS-Contacts-TXT.apk | grep -E 'classes(2)?\\.dex' | tee dex-files.txt
+          sha256sum ZEUS-Contacts-TXT.apk > apk-sha256.txt
+
+      - name: Upload signed APK and verification
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZEUS-Contacts-TXT-tested-build
+          path: |
+            ZEUS-Contacts-TXT.apk
+            apk-badging.txt
+            dex-files.txt
+            apk-sha256.txt
+          if-no-files-found: error
+          retention-days: 30
