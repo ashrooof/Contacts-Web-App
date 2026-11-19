@@ -299,10 +299,11 @@ public final class ZEUSPBAP {
             int colon = trimmed.indexOf(':');
             if (colon < 1) continue;
             String property = trimmed.substring(0, colon).toUpperCase(Locale.ROOT);
+            String base = property.split(";", 2)[0];
             String value = unescape(trimmed.substring(colon + 1));
-            if (property.startsWith("FN")) {
+            if ("FN".equals(base)) {
                 if (!value.trim().isEmpty()) currentName = value.trim();
-            } else if (property.startsWith("N") && currentName == null) {
+            } else if ("N".equals(base) && currentName == null) {
                 String[] parts = value.split(";", -1);
                 StringBuilder name = new StringBuilder();
                 for (int i = parts.length - 1; i >= 0; i--) {
@@ -312,7 +313,7 @@ public final class ZEUSPBAP {
                     }
                 }
                 if (name.length() > 0) currentName = name.toString();
-            } else if (property.startsWith("TEL")) {
+            } else if ("TEL".equals(base)) {
                 if (!value.trim().isEmpty()) phones.add(value.trim());
             }
         }
