@@ -301,7 +301,6 @@ function syncSelection(){
  if(c)c.innerHTML=IC.list+selected.size+' / '+contactsCache.length;
  const dl=sheet.querySelector('[data-a="txt"]');if(dl)dl.classList.toggle('dis',!selected.size);
 }
-function saveFile(content,name,type){const u=URL.createObjectURL(new Blob([content],{type})),a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),2500)}
 function downloadTxt(saveAll){
  const rows=saveAll?contactsCache:contactsCache.filter((_,i)=>selected.has(i));
  if(!rows.length){status('error',saveAll?'لا توجد جهات اتصال لحفظها.':'حدد جهة اتصال واحدة على الأقل قبل التنزيل.');return}
@@ -309,8 +308,11 @@ function downloadTxt(saveAll){
  const date=[n.getFullYear(),String(n.getMonth()+1).padStart(2,'0'),String(n.getDate()).padStart(2,'0')].join('-');
  const time=[String(n.getHours()).padStart(2,'0'),String(n.getMinutes()).padStart(2,'0')].join(':');
  const body='\uFEFFZEUS CONTACT EXPORT\nOperation completed by ZEUS\nDate: '+date+'\nTime: '+time+'\nTelegram: @ll4me\n\nCONTACTS\n'+rows.map((c,i)=>(i+1)+'. '+(c.name||'بدون اسم')+' — '+(c.phone||'بدون رقم')).join('\r\n')+'\r\n';
- saveFile(body,'ZEUS-Contacts-'+(saveAll?'ALL-':'')+date+'.txt','text/plain;charset=utf-8');
- status('ok',saveAll?'تم تجهيز ملف TXT بكل الجهات ('+rows.length+').':'تم تجهيز ملف TXT بعدد '+rows.length+' جهة اتصال.');
+ try{
+  const result=String(ZEUS.saveContactsTxt(body)||'');
+  if(result.startsWith('OK:'))status('ok','تم حفظ '+rows.length+' جهة اتصال في التنزيلات باسم '+result.slice(3));
+  else status('error',result.startsWith('ERROR:')?result.slice(6):'لم يتم حفظ الملف. حاول مرة أخرى.');
+ }catch(e){status('error','تعذّر حفظ ملف TXT داخل الهاتف.')}
 }
 sheet.onclick=e=>{
  const b=e.target.closest('[data-a]');if(!b)return;const a=b.dataset.a;
