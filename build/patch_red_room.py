@@ -149,8 +149,8 @@ m = re.sub(r'\s*<uses-permission android:name="android.permission.READ_CONTACTS"
 m = re.sub(r'\s*<uses-permission android:name="android.permission.WRITE_CONTACTS"[^>]*/>', '', m)
 if 'android.permission.BLUETOOTH_SCAN' not in m:
     m = m.replace('<uses-permission android:name="android.permission.BLUETOOTH_ADMIN"/>',
-        '<uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30"/>\\n'
-        '    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation"/>\\n'
+        '<uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30"/>\n'
+        '    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation"/>\n'
         '    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>')
 write(manifest, m)
 revenue = root / "smali/grant/bt/contact/transfer/Revenue/Revenue.smali"
