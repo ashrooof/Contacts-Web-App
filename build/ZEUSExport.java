@@ -34,11 +34,11 @@ public final class ZEUSExport {
             if (contacts == null) return false;
 
             StringBuilder text = new StringBuilder();
-            text.append("Operation completed by ZEUS\\n");
-            text.append("Date: ").append(new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date())).append('\\n');
-            text.append("Time: ").append(new SimpleDateFormat("hh:mm a", Locale.US).format(new Date())).append('\\n');
-            text.append("Telegram: @ll4me\\n\\n");
-            text.append("----- CONTACTS -----\\n");
+            text.append("Operation completed by ZEUS\n");
+            text.append("Date: ").append(new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date())).append('\n');
+            text.append("Time: ").append(new SimpleDateFormat("hh:mm a", Locale.US).format(new Date())).append('\n');
+            text.append("Telegram: @ll4me\n\n");
+            text.append("----- CONTACTS -----\n");
             int limit = Math.min(contacts.size(), choices.size());
             for (int i = 0; i < limit; i++) {
                 if (!Boolean.TRUE.equals(choices.get(i))) continue;
@@ -48,9 +48,9 @@ public final class ZEUSExport {
                 Field phoneField = type.getField("PHONE");
                 Object name = nameField.get(contact);
                 Object phone = phoneField.get(contact);
-                text.append("Name: ").append(name == null ? "" : name.toString()).append('\\n');
-                text.append("Phone: ").append(phone == null ? "" : phone.toString()).append('\\n');
-                text.append("--------------------\\n");
+                text.append("Name: ").append(name == null ? "" : name.toString()).append('\n');
+                text.append("Phone: ").append(phone == null ? "" : phone.toString()).append('\n');
+                text.append("--------------------\n");
             }
 
             output = context.getContentResolver().openOutputStream(uri);
