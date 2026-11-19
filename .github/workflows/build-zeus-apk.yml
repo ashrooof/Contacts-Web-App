@@ -60,7 +60,7 @@ jobs:
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose ZEUS-Contacts-TXT.apk
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging ZEUS-Contacts-TXT.apk > apk-badging.txt 2> aapt-diagnostics.txt || true
           java -jar apktool.jar d -f ZEUS-Contacts-TXT.apk -o verify-apk >/dev/null
-          grep -q 'package="hack.aaashraf"' verify-apk/AndroidManifest.xml
+          grep -q 'package="hack.aaashraf.zeus"' verify-apk/AndroidManifest.xml
           unzip -Z1 ZEUS-Contacts-TXT.apk | grep -E '^classes(2)?\.dex$' | tee dex-files.txt
           sha256sum ZEUS-Contacts-TXT.apk > apk-sha256.txt
 
