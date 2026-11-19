@@ -6,6 +6,7 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.ContentValues;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
@@ -13,6 +14,8 @@ import android.graphics.Color;
 import android.location.LocationManager;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Environment;
+import android.provider.MediaStore;
 import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.JavascriptInterface;
@@ -26,6 +29,12 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.OutputStream;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
 
 public final class ZEUSWebUI {
     private static volatile Bridge activeBridge;
@@ -91,6 +100,7 @@ public final class ZEUSWebUI {
         private volatile String pairingMessage = "";
         private volatile String pairingState = "idle";
         private volatile String scanMessage = "";
+        private volatile String currentDeviceName = "Bluetooth-Device";
         private final ArrayList<BluetoothDevice> foundDevices = new ArrayList<>();
         private volatile boolean discoveryReceiverRegistered = false;
         private final BroadcastReceiver discoveryReceiver = new BroadcastReceiver() {
@@ -118,6 +128,7 @@ public final class ZEUSWebUI {
                     if (device == null || pendingAddress.isEmpty() || !pendingAddress.equals(device.getAddress())) return;
                     int state = intent.getIntExtra(BluetoothDevice.EXTRA_BOND_STATE, BluetoothDevice.ERROR);
                     if (state == BluetoothDevice.BOND_BONDED) {
+                        currentDeviceName = safeName(device);
                         pendingAddress = "";
                         pairingMessage = "";
                         pairingState = "idle";
@@ -254,6 +265,7 @@ public final class ZEUSWebUI {
                 BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
                 if (adapter == null || !adapter.isEnabled()) return "error";
                 BluetoothDevice device = adapter.getRemoteDevice(address);
+                currentDeviceName = safeName(device);
                 if (device.getBondState() == BluetoothDevice.BOND_BONDED) {
                     pendingAddress = "";
                     pairingMessage = "";
@@ -304,6 +316,51 @@ public final class ZEUSWebUI {
         }
 
         @JavascriptInterface public String contacts() { return ZEUSPBAP.contactsJson(); }
+
+        @JavascriptInterface public String saveContactsTxt(String content) {
+            if (content == null || content.trim().isEmpty()) return "ERROR:لا توجد بيانات لحفظها.";
+            String device = currentDeviceName == null ? "Bluetooth-Device" : currentDeviceName.trim();
+            if (device.isEmpty()) device = "Bluetooth-Device";
+            device = device.replaceAll("[\\\\/:*?\"<>|]+", "_").replaceAll("\\s+", "-");
+            if (device.length() > 48) device = device.substring(0, 48);
+            String date = new SimpleDateFormat("yyyy-MM-dd_HH-mm", Locale.US).format(new Date());
+            String fileName = "ZEUS-" + device + "-Contacts-" + date + ".txt";
+            OutputStream output = null;
+            android.net.Uri created = null;
+            try {
+                if (Build.VERSION.SDK_INT >= 29) {
+                    ContentValues values = new ContentValues();
+                    values.put(MediaStore.MediaColumns.DISPLAY_NAME, fileName);
+                    values.put(MediaStore.MediaColumns.MIME_TYPE, "text/plain");
+                    values.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/ZEUS");
+                    values.put(MediaStore.MediaColumns.IS_PENDING, 1);
+                    created = activity.getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
+                    if (created == null) return "ERROR:لم يتمكن Android من إنشاء الملف داخل التنزيلات.";
+                    output = activity.getContentResolver().openOutputStream(created, "w");
+                } else {
+                    File folder = activity.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
+                    if (folder == null) return "ERROR:مساحة التخزين غير متاحة.";
+                    if (!folder.exists() && !folder.mkdirs()) return "ERROR:تعذّر إنشاء مجلد الحفظ.";
+                    output = new FileOutputStream(new File(folder, fileName));
+                }
+                if (output == null) throw new IllegalStateException("تعذّر فتح ملف الحفظ.");
+                output.write(content.getBytes("UTF-8"));
+                output.flush();
+                output.close();
+                output = null;
+                if (Build.VERSION.SDK_INT >= 29 && created != null) {
+                    ContentValues done = new ContentValues();
+                    done.put(MediaStore.MediaColumns.IS_PENDING, 0);
+                    activity.getContentResolver().update(created, done, null, null);
+                }
+                return "OK:" + fileName;
+            } catch (Exception error) {
+                try { if (output != null) output.close(); } catch (Exception ignored) {}
+                if (created != null) try { activity.getContentResolver().delete(created, null, null); } catch (Exception ignored) {}
+                return "ERROR:فشل حفظ الملف (" + error.getClass().getSimpleName() + ").";
+            }
+        }
+
 
         @JavascriptInterface public void cancelTransfer() {
             pendingAddress = "";
