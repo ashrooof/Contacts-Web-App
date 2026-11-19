@@ -6,6 +6,8 @@ on:
     paths:
       - 'build/fonts/**'
       - 'build/patch_red_room.py'
+      - 'build/ZEUSBluetooth.java'
+      - 'build/ZEUSLightning.java'
       - '.github/workflows/build-zeus-apk.yml'
   workflow_dispatch:
 
