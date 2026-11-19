@@ -7,7 +7,9 @@ on:
       - 'build/fonts/**'
       - 'build/patch_red_room.py'
       - 'build/ZEUSBluetooth.java'
-      - 'build/ZEUSLightning.java'\n      - 'build/ZEUSWebUI.java'\n      - 'build/interface.html'
+      - 'build/ZEUSLightning.java'
+      - 'build/ZEUSWebUI.java'
+      - 'build/interface.html'
       - '.github/workflows/build-zeus-apk.yml'
   workflow_dispatch:
 
@@ -37,7 +39,9 @@ jobs:
           test -s "original/ASHRAF BASHA_1.4.apk"
           test -s "build/ZEUSExport.java"
           test -s "build/ZEUSBluetooth.java"
-          test -s "build/ZEUSLightning.java"\n          test -s "build/ZEUSWebUI.java"\n          test -s "build/interface.html"
+          test -s "build/ZEUSLightning.java"
+          test -s "build/ZEUSWebUI.java"
+          test -s "build/interface.html"
           test -s "build/patch_apk.py"
           test -s "build/patch_red_room.py"
 
