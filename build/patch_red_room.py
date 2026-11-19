@@ -325,6 +325,7 @@ end = page.find('  lens.classList.remove(\'on\');\n};', start)
 if start < 0 or end < 0:
     raise SystemExit("Could not locate browser Bluetooth scan block")
 page = page[:start] + "  try{ ZEUS.scan(); st.textContent='جاري البحث عن الأجهزة القريبة...'; }catch(e){st.textContent='تعذّر بدء البحث';}\n" + page[end:]
+page = page.replace("  lens.classList.remove('on');\n};", "};", 1)
 # Native paired-device drawer, visually integrated with the original design.
 page = page.replace('</style>', '''
 .paired{width:min(640px,100%);max-height:26vh;overflow:auto;border:1px solid rgba(255,18,38,.55);border-radius:12px;background:rgba(5,0,1,.94);box-shadow:0 0 18px rgba(255,18,38,.18);padding:8px 10px}
