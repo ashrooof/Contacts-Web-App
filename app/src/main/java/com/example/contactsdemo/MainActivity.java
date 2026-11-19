@@ -307,7 +307,7 @@ public class MainActivity extends Activity {
         StringBuilder out=new StringBuilder();
         for(int i=0;i<value.length();i++){
             char c=value.charAt(i);
-            if(c=='\\\\'&&i+1<value.length()){
+            if(c=='\\'&&i+1<value.length()){
                 char next=value.charAt(++i);
                 if(next=='n'||next=='N')out.append(' ');
                 else out.append(next);
