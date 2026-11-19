@@ -60,6 +60,9 @@ public final class ZEUSWebUI {
         WebView web = new WebView(activity);
         web.setTag("ZEUS_INTERFACE_WEBVIEW");
         web.setBackgroundColor(Color.BLACK);
+        // Disable Android WebView long-press selection/copy menus; keep screenshots and recording allowed.
+        web.setLongClickable(false);
+        web.setOnLongClickListener(v -> true);
         WebSettings settings = web.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
