@@ -126,3 +126,5 @@ jobs:
 # Rebuild after Android 12+ Nearby devices permission validation fix.
 
 # Rebuild after adding one-tap save-all contacts TXT export.
+
+# Rebuild after hardening native device-named TXT export to Downloads.
