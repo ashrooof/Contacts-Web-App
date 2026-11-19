@@ -59,14 +59,18 @@ jobs:
             echo "AAPT package/activity summary:"
             grep -E '^(package:|launchable-activity:|application:)' inspection/aapt-badging.txt || true
             echo
-            echo "JADX output:"
-            find decompiled -maxdepth 2 -type f | head -100 || true
+            echo "JADX Java source count:"
+            find decompiled/sources -type f -name '*.java' 2>/dev/null | wc -l || true
+            echo
+            echo "Decoded DEX/Smali directories:"
+            find decoded -maxdepth 1 -type d -name 'smali*' -printf '%f\n' 2>/dev/null | sort || true
             echo
             echo "Decoded resource layouts:"
             find decoded/res/layout -maxdepth 1 -type f -printf '%f\n' 2>/dev/null | sort || true
             echo
             echo "Tool logs are included in this artifact."
           } > inspection/summary.txt
+          find decoded -maxdepth 1 -type d -name 'smali*' -print > inspection/smali-directories.txt
 
       - name: Upload inspection bundle
         uses: actions/upload-artifact@v4
@@ -76,7 +80,6 @@ jobs:
             inspection/
             decompiled/sources/
             decompiled/resources/
-            decoded/res/layout/
-            decoded/res/values/
+            decoded/
           if-no-files-found: error
           retention-days: 7
