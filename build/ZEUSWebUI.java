@@ -3,21 +3,27 @@ package grant.bt.contact.transfer;
 import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.content.Intent;
 import android.graphics.Color;
+import android.net.Uri;
+import android.os.Build;
 import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
+import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.Set;
 
 public final class ZEUSWebUI {
   private ZEUSWebUI() {}
   public static void attach(Activity activity) {
-    if (activity == null) return;
+    if (activity == null || Build.VERSION.SDK_INT < 17) return;
     View content = activity.findViewById(android.R.id.content);
     if (!(content instanceof ViewGroup)) return;
     ViewGroup root = (ViewGroup) content;
@@ -29,15 +35,37 @@ public final class ZEUSWebUI {
     settings.setJavaScriptEnabled(true);
     settings.setDomStorageEnabled(true);
     settings.setAllowFileAccess(true);
+    settings.setAllowContentAccess(false);
+    settings.setAllowFileAccessFromFileURLs(false);
+    settings.setAllowUniversalAccessFromFileURLs(false);
+    settings.setJavaScriptCanOpenWindowsAutomatically(false);
+    settings.setSupportMultipleWindows(false);
     settings.setDefaultTextEncodingName("UTF-8");
+    if (Build.VERSION.SDK_INT >= 21) settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
     web.setWebChromeClient(new WebChromeClient());
     web.addJavascriptInterface(new Bridge(activity), "ZEUS");
+    web.setWebViewClient(new WebViewClient() {
+      @Override public boolean shouldOverrideUrlLoading(WebView view, String url) {
+        if (url == null) return true;
+        if (url.startsWith("file:///android_asset/zeus/") || "about:blank".equals(url)) return false;
+        try {
+          Uri uri = Uri.parse(url);
+          String scheme = uri.getScheme();
+          if ("https".equalsIgnoreCase(scheme) || "http".equalsIgnoreCase(scheme)) {
+            activity.startActivity(new Intent(Intent.ACTION_VIEW, uri));
+          }
+        } catch (Exception ignored) {}
+        return true;
+      }
+    });
     root.addView(web, new FrameLayout.LayoutParams(-1, -1));
     web.loadUrl("file:///android_asset/zeus/interface.html");
   }
+
   public static final class Bridge {
     private final Activity activity;
     Bridge(Activity a) { activity = a; }
+
     @JavascriptInterface public String pairedDevices() {
       StringBuilder out = new StringBuilder("[");
       try {
@@ -48,15 +76,43 @@ public final class ZEUSWebUI {
           for (BluetoothDevice d : devices) {
             if (!first) out.append(",");
             first = false;
-            String name = d.getName();
-            if (name == null || name.trim().isEmpty()) name = "Bluetooth Device";
-            out.append("{\"name\":\"").append(escape(name)).append("\",\"address\":\"")
-               .append(escape(d.getAddress())).append("\"}");
+            out.append("{\"name\":\"").append(escape(safeName(d))).append("\",\"address\":\"")
+               .append(escape(d.getAddress())).append("\",\"paired\":true}");
           }
         }
       } catch (Exception ignored) {}
       return out.append("]").toString();
     }
+
+    @JavascriptInterface public String discoveredDevices() {
+      StringBuilder out = new StringBuilder("[");
+      try {
+        Field f = activity.getClass().getDeclaredField("availableDevices");
+        f.setAccessible(true);
+        Object value = f.get(activity);
+        if (value instanceof ArrayList) {
+          boolean first = true;
+          for (Object item : (ArrayList<?>) value) {
+            if (!(item instanceof BluetoothDevice)) continue;
+            BluetoothDevice d = (BluetoothDevice) item;
+            if (!first) out.append(",");
+            first = false;
+            boolean paired = d.getBondState() == BluetoothDevice.BOND_BONDED;
+            out.append("{\"name\":\"").append(escape(safeName(d))).append("\",\"address\":\"")
+               .append(escape(d.getAddress())).append("\",\"paired\":").append(paired).append("}");
+          }
+        }
+      } catch (Exception ignored) {}
+      return out.append("]").toString();
+    }
+
+    @JavascriptInterface public boolean isDiscovering() {
+      try {
+        BluetoothAdapter a = BluetoothAdapter.getDefaultAdapter();
+        return a != null && a.isDiscovering();
+      } catch (Exception ignored) { return false; }
+    }
+
     @JavascriptInterface public void scan() {
       activity.runOnUiThread(() -> {
         try {
@@ -65,19 +121,34 @@ public final class ZEUSWebUI {
         } catch (Exception ignored) {}
       });
     }
+
     @JavascriptInterface public void connect(String address) {
+      if (address == null || !address.matches("(?i)[0-9a-f]{2}(:[0-9a-f]{2}){5}")) return;
       activity.runOnUiThread(() -> {
         try {
           BluetoothAdapter a = BluetoothAdapter.getDefaultAdapter();
           BluetoothDevice d = a == null ? null : a.getRemoteDevice(address);
           if (d == null) return;
-          Method m = activity.getClass().getMethod("connectToPhonebook", BluetoothDevice.class);
-          m.invoke(activity, d);
+          if (d.getBondState() == BluetoothDevice.BOND_BONDED) {
+            Method m = activity.getClass().getMethod("connectToPhonebook", BluetoothDevice.class);
+            m.invoke(activity, d);
+          } else {
+            Method m = activity.getClass().getMethod("pairDevice", BluetoothDevice.class);
+            m.invoke(activity, d);
+          }
         } catch (Exception ignored) {}
       });
     }
+
     @JavascriptInterface public void closeApp() {
       activity.runOnUiThread(() -> activity.finish());
+    }
+
+    private static String safeName(BluetoothDevice d) {
+      try {
+        String n = d.getName();
+        return n == null || n.trim().isEmpty() ? "Bluetooth Device" : n;
+      } catch (Exception ignored) { return "Bluetooth Device"; }
     }
     private static String escape(String s) {
       return s.replace("\\", "\\\\").replace("\"", "\\\"")
