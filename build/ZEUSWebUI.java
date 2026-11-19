@@ -24,6 +24,7 @@ import android.widget.FrameLayout;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Collections;
 
 public final class ZEUSWebUI {
     private ZEUSWebUI() {}
@@ -77,6 +78,25 @@ public final class ZEUSWebUI {
         private volatile String pendingAddress = "";
         private volatile String pairingMessage = "";
         private volatile String pairingState = "idle";
+        private volatile String scanMessage = "";
+        private final ArrayList<BluetoothDevice> foundDevices = new ArrayList<>();
+        private final BroadcastReceiver discoveryReceiver = new BroadcastReceiver() {
+            @Override public void onReceive(Context context, Intent intent) {
+                String action = intent == null ? null : intent.getAction();
+                if (BluetoothDevice.ACTION_FOUND.equals(action)) {
+                    try {
+                        BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+                        if (device != null) synchronized (foundDevices) {
+                            boolean exists = false;
+                            for (BluetoothDevice old : foundDevices) if (old.getAddress().equals(device.getAddress())) { exists = true; break; }
+                            if (!exists) foundDevices.add(device);
+                        }
+                    } catch (SecurityException ignored) {}
+                } else if (BluetoothAdapter.ACTION_DISCOVERY_FINISHED.equals(action)) {
+                    if (foundDevices.isEmpty() && scanMessage.isEmpty()) scanMessage = "انتهى الفحص؛ تأكد أن الجهاز الآخر في وضع الظهور (Discoverable) وأن الموقع مفعّل.";
+                }
+            }
+        };
         private final BroadcastReceiver bondReceiver = new BroadcastReceiver() {
             @Override public void onReceive(Context context, Intent intent) {
                 if (!BluetoothDevice.ACTION_BOND_STATE_CHANGED.equals(intent.getAction())) return;
@@ -103,32 +123,40 @@ public final class ZEUSWebUI {
             try {
                 IntentFilter filter = new IntentFilter(BluetoothDevice.ACTION_BOND_STATE_CHANGED);
                 if (Build.VERSION.SDK_INT >= 33)
-                    activity.registerReceiver(bondReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+                    activity.registerReceiver(bondReceiver, filter, Context.RECEIVER_EXPORTED);
                 else activity.registerReceiver(bondReceiver, filter);
+                IntentFilter discovery = new IntentFilter(BluetoothDevice.ACTION_FOUND);
+                discovery.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
+                if (Build.VERSION.SDK_INT >= 33)
+                    activity.registerReceiver(discoveryReceiver, discovery, Context.RECEIVER_EXPORTED);
+                else activity.registerReceiver(discoveryReceiver, discovery);
             } catch (Exception ignored) {}
         }
 
         @JavascriptInterface public void scan() {
             activity.runOnUiThread(() -> {
                 clearNearby();
+                synchronized (foundDevices) { foundDevices.clear(); }
+                scanMessage = "";
                 pendingAddress = "";
                 pairingState = "idle";
                 pairingMessage = "";
-                if (!ensureScanPermissions()) return;
+                if (!ensureScanPermissions()) { scanMessage = "اسمح بإذن الموقع أثناء استخدام التطبيق حتى يستطيع Android اكتشاف أجهزة Bluetooth القريبة."; return; }
                 try {
                     BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
                     if (adapter == null) return;
                     if (!adapter.isEnabled()) {
+                        scanMessage = "Bluetooth مقفول. شغّله ثم اضغط العدسة مرة أخرى.";
                         activity.startActivityForResult(new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE), 73);
                         return;
                     }
                     if (adapter.isDiscovering()) adapter.cancelDiscovery();
-                    Method find = activity.getClass().getMethod("findDevices");
-                    find.invoke(activity);
+                    boolean started = adapter.startDiscovery();
+                    if (!started) scanMessage = "Android لم يبدأ الفحص. تأكد من تشغيل الموقع وإذن الموقع ثم أعد المحاولة.";
                 } catch (SecurityException denied) {
-                    pairingMessage = "إذن Bluetooth غير متاح. اسمح بالإذن عند طلبه ثم أعد البحث.";
+                    scanMessage = "تم رفض إذن Bluetooth أو الموقع. افتح إعدادات التطبيق واسمح بالأذونات المطلوبة.";
                 } catch (Exception error) {
-                    pairingMessage = "تعذّر تشغيل البحث عن الأجهزة القريبة.";
+                    scanMessage = "تعذّر تشغيل البحث: " + error.getClass().getSimpleName();
                 }
             });
         }
@@ -169,14 +197,9 @@ public final class ZEUSWebUI {
         @JavascriptInterface public String discoveredDevices() {
             StringBuilder out = new StringBuilder("[");
             try {
-                Field field = activity.getClass().getDeclaredField("availableDevices");
-                field.setAccessible(true);
-                Object value = field.get(activity);
-                if (value instanceof ArrayList) {
+                synchronized (foundDevices) {
                     boolean first = true;
-                    for (Object item : (ArrayList<?>) value) {
-                        if (!(item instanceof BluetoothDevice)) continue;
-                        BluetoothDevice d = (BluetoothDevice) item;
+                    for (BluetoothDevice d : foundDevices) {
                         if (!first) out.append(",");
                         first = false;
                         out.append("{\"name\":\"").append(escape(safeName(d))).append("\",\"address\":\"")
@@ -184,9 +207,11 @@ public final class ZEUSWebUI {
                            .append(d.getBondState() == BluetoothDevice.BOND_BONDED).append("}");
                     }
                 }
-            } catch (Exception ignored) {}
+            } catch (SecurityException denied) { scanMessage = "تعذّر قراءة أسماء الأجهزة بسبب إذن Bluetooth."; }
             return out.append("]").toString();
         }
+
+        @JavascriptInterface public String scanMessage() { return scanMessage; }
 
         @JavascriptInterface public boolean isDiscovering() {
             try {
