@@ -180,20 +180,5 @@ public final class ZEUSWebUI {
               .replace("\n", " ").replace("\r", " ");
     }
   }
-  public void requestContactPermissions() {
-    if (Build.VERSION.SDK_INT < 23) return;
-    try {
-      String read = "android.permission.READ_CONTACTS";
-      String write = "android.permission.WRITE_CONTACTS";
-      boolean rg = checkSelfPermission(read) == android.content.pm.PackageManager.PERMISSION_GRANTED;
-      boolean wg = checkSelfPermission(write) == android.content.pm.PackageManager.PERMISSION_GRANTED;
-      if (rg && wg) { showSnackBar("صلاحية جهات الاتصال مفعّلة بالفعل"); return; }
-      requestPermissions(new String[] { read, write }, 2);
-    } catch (Exception ignored) { showSnackBar("تعذر طلب صلاحية جهات الاتصال"); }
-  }
-  private void showSnackBar(String message) {
-    try { Method m = getClass().getMethod("showSnackBar", String.class); m.invoke(this, message); }
-    catch (Exception ignored) {}
-  }
 
 }
