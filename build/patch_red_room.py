@@ -226,7 +226,7 @@ if payload_count < 1:
 setup = '    invoke-virtual {p0}, Lgrant/bt/contact/transfer/DeviceListActivity;->setupNearbyDeviceList()V\n'
 if setup not in d:
     raise SystemExit("Could not locate device list initialization")
-d = d.replace(setup, setup + '    invoke-static {p0}, Lgrant/bt/contact/transfer/ZEUSBluetooth;->loadPaired(Landroid/app/Activity;)V\n    invoke-static {p0}, Lgrant/bt/contact/transfer/ZEUSLightning;->attach(Landroid/app/Activity;)V\n', 1)
+d = d.replace(setup, setup + '    invoke-static {p0}, Lgrant/bt/contact/transfer/ZEUSBluetooth;->loadPaired(Landroid/app/Activity;)V\n', 1)
 resume = '    invoke-virtual {p0, v1, v0}, Lgrant/bt/contact/transfer/DeviceListActivity;->registerReceiver(Landroid/content/BroadcastReceiver;Landroid/content/IntentFilter;)Landroid/content/Intent;\n\n    return-void'
 if resume in d:
     d = d.replace(resume, '    invoke-virtual {p0, v1, v0}, Lgrant/bt/contact/transfer/DeviceListActivity;->registerReceiver(Landroid/content/BroadcastReceiver;Landroid/content/IntentFilter;)Landroid/content/Intent;\n\n    invoke-static {p0}, Lgrant/bt/contact/transfer/ZEUSBluetooth;->loadPaired(Landroid/app/Activity;)V\n    return-void', 1)
@@ -337,7 +337,7 @@ page = page.replace('<div class="status" id="status">اضغط على العدس�
 page = page.replace('// ---- menu ----', '''// ---- Android paired devices ----
 const pairedBox=document.getElementById('paired'),pairedHead=document.getElementById('pairedHead'),pairedList=document.getElementById('pairedList');
 function renderPaired(){try{const ds=JSON.parse(ZEUS.pairedDevices());document.getElementById('pairedCount').textContent=ds.length;pairedList.innerHTML='';if(!ds.length){pairedList.textContent='لا توجد أجهزة مقترنة محفوظة';return}ds.forEach(d=>{const b=document.createElement('button');b.className='paired-item';const n=document.createElement('span');n.textContent=d.name;const a=document.createElement('small');a.textContent='PAIRED';b.append(n,a);b.onclick=()=>{ZEUS.connect(d.address);st.textContent='جاري الاتصال بـ '+d.name};pairedList.appendChild(b)})}catch(e){}}
-pairedHead.onclick=()=>pairedBox.classList.toggle('open');renderPaired();
+pairedHead.onclick=()=>pairedBox.classList.toggle('open');renderPaired();setInterval(renderPaired,4000);
 // ---- menu ----''')
 page = page.replace('window.close();', 'if(window.ZEUS)ZEUS.closeApp();')
 write(assets / "interface.html", page)
@@ -345,7 +345,7 @@ write(assets / "interface.html", page)
 # Place the WebView above the legacy screen after its native Bluetooth setup.
 smali = root / "smali/grant/bt/contact/transfer/DeviceListActivity.smali"
 d = read(smali)
-anchor = '    invoke-static {p0}, Lgrant/bt/contact/transfer/ZEUSLightning;->attach(Landroid/app/Activity;)V'
+anchor = '    invoke-static {p0}, Lgrant/bt/contact/transfer/ZEUSBluetooth;->attachPairedPanel(Landroid/app/Activity;)V'
 if anchor not in d:
     raise SystemExit("Missing ZEUS lightning initialization anchor")
 if 'ZEUSWebUI;->attach' not in d:
