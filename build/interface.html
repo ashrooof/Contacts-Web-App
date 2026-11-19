@@ -308,7 +308,7 @@ function downloadTxt(saveAll){
  const n=new Date();
  const date=[n.getFullYear(),String(n.getMonth()+1).padStart(2,'0'),String(n.getDate()).padStart(2,'0')].join('-');
  const time=[String(n.getHours()).padStart(2,'0'),String(n.getMinutes()).padStart(2,'0')].join(':');
- const body='\\uFEFFZEUS CONTACT EXPORT\\nOperation completed by ZEUS\\nDate: '+date+'\\nTime: '+time+'\\nTelegram: @ll4me\\n\\nCONTACTS\\n'+rows.map((c,i)=>(i+1)+'. '+(c.name||'بدون اسم')+' — '+(c.phone||'بدون رقم')).join('\\r\\n')+'\\r\\n';
+ const body='\uFEFFZEUS CONTACT EXPORT\nOperation completed by ZEUS\nDate: '+date+'\nTime: '+time+'\nTelegram: @ll4me\n\nCONTACTS\n'+rows.map((c,i)=>(i+1)+'. '+(c.name||'بدون اسم')+' — '+(c.phone||'بدون رقم')).join('\r\n')+'\r\n';
  saveFile(body,'ZEUS-Contacts-'+(saveAll?'ALL-':'')+date+'.txt','text/plain;charset=utf-8');
  status('ok',saveAll?'تم تجهيز ملف TXT بكل الجهات ('+rows.length+').':'تم تجهيز ملف TXT بعدد '+rows.length+' جهة اتصال.');
 }
