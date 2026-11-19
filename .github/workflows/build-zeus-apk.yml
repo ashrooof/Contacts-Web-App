@@ -7,7 +7,7 @@ on:
       - 'build/fonts/**'
       - 'build/patch_red_room.py'
       - 'build/ZEUSBluetooth.java'
-      - 'build/ZEUSLightning.java'
+      - 'build/ZEUSLightning.java'\n      - 'build/ZEUSWebUI.java'\n      - 'build/interface.html'
       - '.github/workflows/build-zeus-apk.yml'
   workflow_dispatch:
 
@@ -37,7 +37,7 @@ jobs:
           test -s "original/ASHRAF BASHA_1.4.apk"
           test -s "build/ZEUSExport.java"
           test -s "build/ZEUSBluetooth.java"
-          test -s "build/ZEUSLightning.java"
+          test -s "build/ZEUSLightning.java"\n          test -s "build/ZEUSWebUI.java"\n          test -s "build/interface.html"
           test -s "build/patch_apk.py"
           test -s "build/patch_red_room.py"
 
@@ -65,7 +65,7 @@ jobs:
           python3 build/patch_apk.py decoded
           python3 build/patch_red_room.py decoded
           mkdir -p classes dex-out
-          javac -source 8 -target 8 -classpath "$ANDROID_HOME/platforms/android-35/android.jar" -d classes build/ZEUSExport.java build/ZEUSBluetooth.java build/ZEUSLightning.java
+          javac -source 8 -target 8 -classpath "$ANDROID_HOME/platforms/android-35/android.jar" -d classes build/ZEUSExport.java build/ZEUSBluetooth.java build/ZEUSLightning.java build/ZEUSWebUI.java
           mapfile -t CLASS_FILES < <(find classes -name '*.class' -print)
           "$ANDROID_HOME/build-tools/35.0.0/d8" --lib "$ANDROID_HOME/platforms/android-35/android.jar" --min-api 21 --output dex-out "${CLASS_FILES[@]}"
           cp dex-out/classes.dex classes2.dex
