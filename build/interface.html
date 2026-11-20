@@ -325,7 +325,7 @@ function downloadTxt(){
  const n=new Date();
  const date=new Intl.DateTimeFormat('en-CA',{timeZone:'Africa/Cairo',year:'numeric',month:'2-digit',day:'2-digit'}).format(n);
  const time=new Intl.DateTimeFormat('en-GB',{timeZone:'Africa/Cairo',hour:'2-digit',minute:'2-digit',hour12:false}).format(n);
- const body='\uFEFFZEUS CONTACT EXPORT\nOperation completed by ZEUS\nDate: '+date+'\nTime: '+time+'\nTelegram: @ll4me\n\nCONTACTS\n'+rows.map((c,i)=>(i+1)+'. '+(c.name||'بدون اسم')+' — '+(c.phone||'بدون رقم')).join('\r\n')+'\r\n';
+ const body='\uFEFFZEUS CONTACT EXPORT\nOperation completed by ZEUS\nDate: '+date+'\nTime: '+time+'\nTelegram: @ll4me\n\nCONTACTS\n'+rows.map((c,i)=>String(i+1).padStart(2,'0')+'. '+(c.name||'بدون اسم')+'\n   '+(c.phone||'بدون رقم')).join('\r\n\r\n')+'\n\nTOTAL CONTACTS: '+rows.length+'\r\n';
  try{
   const result=String(ZEUS.saveContactsTxt(body)||'');
   if(result.startsWith('OK:'))status('ok','تم حفظ '+rows.length+' جهة اتصال في التنزيلات باسم '+result.slice(3));
