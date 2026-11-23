@@ -4,7 +4,6 @@ import android.content.Context;
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyProperties;
 import java.io.File;
-import java.nio.file.Files;
 import java.security.KeyStore;
 import java.util.UUID;
 import javax.crypto.Cipher;
