@@ -250,16 +250,14 @@ public class MainActivity extends Activity {
     }
     byte[] header(int id,byte[] value)throws IOException{ByteArrayOutputStream b=new ByteArrayOutputStream();b.write(id);int n=value.length+3;b.write(n>>8);b.write(n);b.write(value);return b.toByteArray();}
     String parseVcard(String raw,String source){
-        StringBuilder out=new StringBuilder("Source: "+source+"\\nReceived: "+new Date()+"\\n\\n");
+        String normalized=raw.replace("\r\n","\n").replace("\r","\n");
         ArrayList<String> lines=new ArrayList<>();
-        for(String line:raw.replace("\\r","").split("\\n")){
-            if(!lines.isEmpty()&&(line.startsWith(" ")||line.startsWith("\\t"))){
-                int last=lines.size()-1;
-                String previous=lines.get(last);
-                if(previous.endsWith("="))previous=previous.substring(0,previous.length()-1);
-                lines.set(last,previous+line.substring(1));
+        for(String line:normalized.split("\n")){
+            if(!lines.isEmpty()&&(line.startsWith(" ")||line.startsWith("\t"))){
+                int last=lines.size()-1;lines.set(last,lines.get(last)+line.substring(1));
             }else lines.add(line);
         }
+        StringBuilder out=new StringBuilder("Source: "+source+"\nReceived: "+new Date()+"\n\n");
         String name="",fallback="",phone="";int total=0;
         for(String line:lines){
             int colon=line.indexOf(':');if(colon<0)continue;
@@ -283,7 +281,7 @@ public class MainActivity extends Activity {
                 String display=name.isEmpty()?fallback:name;
                 if(!display.isEmpty()||!phone.isEmpty()){
                     total++;out.append(total).append(". ").append(display.isEmpty()?"(بدون اسم)":display)
-                        .append("\\n").append(phone.isEmpty()?"(بدون رقم)":phone).append("\\n\\n");
+                        .append("\n").append(phone.isEmpty()?"(بدون رقم)":phone).append("\n\n");
                 }
             }
         }
