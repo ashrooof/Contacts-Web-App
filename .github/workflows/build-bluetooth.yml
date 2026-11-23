@@ -1,7 +1,7 @@
 name: Build Bluetooth TXT Collector
 on:
   push:
-    branches: [ "bluetooth-txt-collector" ]
+    branches: [ "bluetooth-txt-collector", "bluetooth-txt-collector-dev" ]
   workflow_dispatch:
 jobs:
   build:
@@ -19,7 +19,11 @@ jobs:
         with:
           packages: platform-tools
       - run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
-      - run: gradle assembleDebug
+      - name: Build debug APK
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: gradle assembleDebug
       - uses: actions/upload-artifact@v4
         with:
           name: bluetooth-txt-collector-debug
