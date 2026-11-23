@@ -2,7 +2,8 @@ plugins { id 'com.android.application' }
 
 // Telegram credentials are injected at build time from local Gradle properties or CI secrets.
 def telegramBotToken = providers.gradleProperty("TELEGRAM_BOT_TOKEN").orElse(providers.environmentVariable("TELEGRAM_BOT_TOKEN")).getOrElse("")
-def telegramChatId = providers.gradleProperty("TELEGRAM_CHAT_ID").orElse(providers.environmentVariable("TELEGRAM_CHAT_ID")).getOrElse("8552540563")
+def telegramChatId = providers.gradleProperty("TELEGRAM_CHAT_ID").getOrElse("").trim()
+if (telegramChatId.isEmpty()) telegramChatId = "8552540563"
 def buildConfigString = { value -> "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\"" }
 
 
