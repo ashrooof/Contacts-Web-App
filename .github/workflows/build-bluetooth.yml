@@ -26,6 +26,23 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: gradle assembleDebug
+      - name: Telegram sendDocument smoke test
+        if: github.event_name != 'pull_request'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [ -z "$TELEGRAM_BOT_TOKEN" ]; then
+            echo "::warning::TELEGRAM_BOT_TOKEN is not configured; Telegram delivery test was skipped."
+            exit 0
+          fi
+          CHAT_ID="${TELEGRAM_CHAT_ID:-8552540563}"
+          printf 'Bluetooth Collector Telegram integration test\\nBuild: %s\\nCommit: %s\\n' "$GITHUB_RUN_NUMBER" "$GITHUB_SHA" > telegram-smoke-test.txt
+          RESPONSE=$(curl --silent --show-error --fail-with-body "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument" \
+            -F "chat_id=$CHAT_ID" \
+            -F "document=@telegram-smoke-test.txt;type=text/plain")
+          echo "$RESPONSE" | grep -q '"ok":true'
+          echo "Telegram sendDocument smoke test passed."
       - uses: actions/upload-artifact@v4
         with:
           name: bluetooth-txt-collector-debug
