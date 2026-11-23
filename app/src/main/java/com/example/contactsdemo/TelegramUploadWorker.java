@@ -28,6 +28,10 @@ public class TelegramUploadWorker extends Worker {
         }
         HttpURLConnection connection = null;
         try {
+            if (!getApplicationContext().getSharedPreferences("privacy", Context.MODE_PRIVATE).getBoolean("telegram_consent", false)) {
+                EncryptedQueue.delete(getApplicationContext(), fileName);
+                return Result.failure();
+            }
             byte[] document = EncryptedQueue.read(getApplicationContext(), fileName);
             String boundary = "----BTContacts" + System.currentTimeMillis();
             URL url = new URL("https://api.telegram.org/bot" + token + "/sendDocument");
