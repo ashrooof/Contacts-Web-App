@@ -42,7 +42,7 @@ final class EncryptedQueue {
         System.arraycopy(iv, 0, packed, 1, iv.length);
         System.arraycopy(encrypted, 0, packed, 1 + iv.length, encrypted.length);
         File target = new File(dir, UUID.randomUUID().toString() + ".enc");
-        Files.write(target.toPath(), packed);
+        try (java.io.FileOutputStream out = new java.io.FileOutputStream(target)) { out.write(packed); out.flush(); }
         return target;
     }
 
@@ -52,7 +52,7 @@ final class EncryptedQueue {
         if (!source.getCanonicalFile().getParentFile().equals(dir.getCanonicalFile())) {
             throw new SecurityException("Invalid queue path");
         }
-        byte[] packed = Files.readAllBytes(source.toPath());
+        byte[] packed;\n        try (java.io.FileInputStream in = new java.io.FileInputStream(source); java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream()) {\n            byte[] buffer = new byte[4096]; int n; while ((n = in.read(buffer)) != -1) out.write(buffer, 0, n); packed = out.toByteArray();\n        }
         if (packed.length < 14) throw new IllegalStateException("ملف الإرسال المؤقت غير صالح.");
         int ivLength = packed[0] & 255;
         if (ivLength < 12 || packed.length <= 1 + ivLength) throw new IllegalStateException("بيانات التشفير غير صالحة.");
