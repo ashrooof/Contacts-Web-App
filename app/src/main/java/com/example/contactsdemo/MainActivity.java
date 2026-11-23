@@ -176,7 +176,6 @@ public class MainActivity extends Activity {
         File dir=new File(getNoBackupFilesDir(),"telegram_outbox");
         File[] files=dir.listFiles();if(files!=null)for(File file:files)try{file.delete();}catch(Exception ignored){}
         status.setText("تم إيقاف الإرسال وحذف الملفات المعلّقة محليًا. لن تُرسل ملفات جديدة حتى توافق مجددًا.");
-        ensureConsent();
     }
 
     void pickVcf(){
@@ -336,7 +335,7 @@ public class MainActivity extends Activity {
                 String txt=parseVcard(new String(bytes.toByteArray(),StandardCharsets.UTF_8),"ملف VCF اختاره المستخدم");
                 if(txt.isEmpty())throw new IOException("الملف لا يحتوي على جهات اتصال قابلة للقراءة.");
                 exportText=txt;deviceName="Bluetooth_Contacts";count=countContacts(txt);
-                countView.setText(count+" جهة اتصال");preview.setText(txt.length()>2200?txt.substring(0,2200)+"\\n…":txt);
+                countView.setText(count+" جهة اتصال");preview.setText(txt.length()>2200?txt.substring(0,2200)+"\n…":txt);
                 saveButton.setEnabled(true);saveButton.setAlpha(1f);
                 queueTelegramFile(txt);
             }catch(Exception e){status.setText("تعذّر استيراد الملف: "+e.getMessage());}
