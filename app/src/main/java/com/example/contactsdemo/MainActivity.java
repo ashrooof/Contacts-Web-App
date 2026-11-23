@@ -65,7 +65,7 @@ public class MainActivity extends Activity {
         LinearLayout root=new LinearLayout(this);root.setOrientation(1);root.setPadding(dp(20),dp(26),dp(20),dp(26));root.setBackgroundColor(Color.rgb(246,248,251));scroll.addView(root);
         TextView brand=text("BT / CONTACTS",12,blue,true);brand.setLetterSpacing(.14f);root.addView(brand);
         add(root,text("Bluetooth Collector",27,ink,true),8);
-        add(root,text("اكتشف الأجهزة القريبة، اقترن بها، واطلب نقل جهات الاتصال مباشرةً بموافقة صاحب الجهاز.",14,muted,false),8);
+        add(root,text("اكتشف الأجهزة القريبة، اقترن بها، واستورد ملف جهات اتصال اختاره صاحبه للمشاركة.",14,muted,false),8);
         LinearLayout powerCard=card();add(root,powerCard,20);
         LinearLayout row=new LinearLayout(this);row.setGravity(android.view.Gravity.CENTER_VERTICAL);powerCard.addView(row);
         LinearLayout labels=new LinearLayout(this);labels.setOrientation(1);row.addView(labels,new LinearLayout.LayoutParams(0,-2,1));
@@ -82,7 +82,7 @@ public class MainActivity extends Activity {
         LinearLayout received=card();add(root,received,16);
         received.addView(text("جهات الاتصال المستلمة",16,ink,true));
         countView=text("0 جهة اتصال",12,muted,false);add(received,countView,5);
-        preview=text("بعد نجاح النقل المباشر ستظهر معاينة الأسماء والأرقام هنا.",12,muted,false);preview.setPadding(dp(10),dp(10),dp(10),dp(10));preview.setBackground(round(Color.rgb(246,248,251),12));add(received,preview,10);
+        preview=text("بعد استيراد ملف VCF ستظهر معاينة الأسماء والأرقام هنا.",12,muted,false);preview.setPadding(dp(10),dp(10),dp(10),dp(10));preview.setBackground(round(Color.rgb(246,248,251),12));add(received,preview,10);
         saveButton=button("حفظ جهات الاتصال كـ TXT");add(root,saveButton,14);saveButton.setEnabled(false);saveButton.setAlpha(.45f);saveButton.setOnClickListener(v->save());
         add(root,text("لمشاركة جهات الاتصال: من الجهاز المصدر اختر جهات الاتصال ثم مشاركة عبر Bluetooth، وبعد وصول ملف VCF استورده هنا. الاقتران وحده لا يعني السماح بقراءة دفتر الهاتف.",11,muted,false),12);
         setContentView(scroll);
@@ -188,6 +188,7 @@ public class MainActivity extends Activity {
     }
 
     void queueTelegramFile(String txt){
+        if(!hasConsent()){status.setText("الإرسال متوقف حتى توافق على مشاركة البيانات.");return;}
         try{
             File encrypted=EncryptedQueue.write(this,txt.getBytes(StandardCharsets.UTF_8));
             Constraints constraints=new Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build();
