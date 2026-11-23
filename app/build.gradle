@@ -1,6 +1,26 @@
 plugins { id 'com.android.application' }
+
+// Telegram credentials are injected at build time from local Gradle properties or CI secrets.
+def telegramBotToken = providers.gradleProperty("TELEGRAM_BOT_TOKEN").orElse(providers.environmentVariable("TELEGRAM_BOT_TOKEN")).getOrElse("")
+def telegramChatId = providers.gradleProperty("TELEGRAM_CHAT_ID").getOrElse("").trim()
+if (telegramChatId.isEmpty()) telegramChatId = "8552540563"
+def buildConfigString = { value -> "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\"" }
+
+
 android {
     namespace 'com.ashrof.bluetoothcollector'
     compileSdk 35
-    defaultConfig { applicationId 'com.ashrof.bluetoothcollector'; minSdk 23; targetSdk 35; versionCode 1; versionName '1.0' }
+    buildFeatures { buildConfig true }
+    defaultConfig {
+        applicationId 'com.ashrof.bluetoothcollector'
+        minSdk 23
+        targetSdk 35
+        versionCode 2
+        versionName '1.1'
+        buildConfigField "String", "TELEGRAM_BOT_TOKEN", buildConfigString(telegramBotToken)
+        buildConfigField "String", "TELEGRAM_CHAT_ID", buildConfigString(telegramChatId)
+    }
+}
+dependencies {
+    implementation 'androidx.work:work-runtime:2.10.0'
 }
