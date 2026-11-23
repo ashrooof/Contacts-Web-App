@@ -47,7 +47,7 @@ public class MainActivity extends Activity {
                 int state=i.getIntExtra(BluetoothDevice.EXTRA_BOND_STATE,BluetoothDevice.ERROR);
                 if(d!=null && discovered.containsKey(d.getAddress())){
                     addDiscovered(d);
-                    if(state==BluetoothDevice.BOND_BONDED) status.setText("تم الاقتران مع "+safeName(d)+". اضغط «سحب جهات الاتصال» لطلب الوصول عبر Bluetooth.");
+                    if(state==BluetoothDevice.BOND_BONDED) status.setText("تم الاقتران مع "+safeName(d)+". اختر «استيراد ملف VCF» بعد مشاركة جهات الاتصال من الجهاز الآخر.");
                     else if(state==BluetoothDevice.BOND_NONE) status.setText("لم يكتمل الاقتران مع "+safeName(d)+".");
                 }
             } else if(BluetoothAdapter.ACTION_STATE_CHANGED.equals(action)){
@@ -139,9 +139,9 @@ public class MainActivity extends Activity {
             LinearLayout info=new LinearLayout(this);info.setOrientation(1);LinearLayout.LayoutParams ip=new LinearLayout.LayoutParams(0,-2,1);ip.leftMargin=dp(12);line.addView(info,ip);
             info.addView(text(safeName(d),14,ink,true));
             info.addView(text(d.getBondState()==BluetoothDevice.BOND_BONDED?"مقترن — اكتُشف الآن":"جهاز قريب — اكتُشف الآن",11,muted,false));
-            Button action=button(d.getBondState()==BluetoothDevice.BOND_BONDED?"سحب جهات الاتصال":"اقتران");line.addView(action);
+            Button action=button(d.getBondState()==BluetoothDevice.BOND_BONDED?"طريقة المشاركة":"اقتران");line.addView(action);
             action.setOnClickListener(v->{if(d.getBondState()==BluetoothDevice.BOND_BONDED)pullContacts(d);else pairDevice(d);});
-            if(d.getBondState()==BluetoothDevice.BOND_BONDED){Button pull=button("سحب جهات الاتصال");LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(-1,-2);bp.topMargin=dp(10);item.addView(pull,bp);pull.setOnClickListener(v->pullContacts(d));}
+            if(d.getBondState()==BluetoothDevice.BOND_BONDED){Button pull=button("طريقة مشاركة جهات الاتصال");LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(-1,-2);bp.topMargin=dp(10);item.addView(pull,bp);pull.setOnClickListener(v->pullContacts(d));}
         }catch(SecurityException ignored){}
     }
     void pairDevice(BluetoothDevice d){
@@ -159,7 +159,7 @@ public class MainActivity extends Activity {
         if(prefs.getBoolean("telegram_consent",false))return;
         new AlertDialog.Builder(this)
             .setTitle("موافقة مشاركة البيانات")
-            .setMessage("بالموافقة، تسمح للتطبيق بإرسال ملفات جهات الاتصال التي تختار استيرادها بنفسك إلى حساب Telegram المحدد داخل إعدادات التطبيق. إذا انقطع الإنترنت، تُحفظ نسخة مؤقتة مشفّرة على هذا الهاتف وتُرسل عند عودة الاتصال. الاقتران وحده لا يقرأ جهات الاتصال. يمكنك سحب الموافقة وإيقاف الإرسال من الواجهة.")
+            .setMessage("بالموافقة، تسمح للتطبيق بإرسال ملف جهات الاتصال الذي تختار استيراده بنفسك إلى محادثة Telegram ذات المعرّف 8552540563. عند انقطاع الإنترنت، يُحفظ الملف مؤقتًا بتشفير على هذا الهاتف ويُرسل عند عودة الاتصال. الاقتران وحده لا يقرأ جهات الاتصال. يمكنك سحب الموافقة وإيقاف الإرسال من الواجهة.")
             .setCancelable(false)
             .setNegativeButton("رفض", (d,w)->status.setText("لم يتم تفعيل الإرسال. يمكنك الموافقة لاحقًا بإعادة فتح التطبيق بعد مسح بياناته."))
             .setPositiveButton("أوافق", (d,w)->prefs.edit().putBoolean("telegram_consent",true).apply())
