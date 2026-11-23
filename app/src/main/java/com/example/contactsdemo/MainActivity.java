@@ -5,6 +5,10 @@ import android.app.Activity;
 import android.bluetooth.*;
 import android.content.*;
 import android.content.pm.PackageManager;
+import android.app.AlertDialog;
+import android.net.Uri;
+import androidx.work.*;
+import java.util.concurrent.TimeUnit;
 import android.os.*;
 import android.graphics.Color;
 import android.graphics.Typeface;
@@ -18,7 +22,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class MainActivity extends Activity {
-    static final int BT_PERMISSION=10, ENABLE_BT=13;
+    static final int BT_PERMISSION=10, ENABLE_BT=13, PICK_VCF=14;
     static final UUID PBAP_UUID=UUID.fromString("0000112f-0000-1000-8000-00805f9b34fb");
     BluetoothAdapter adapter;
     LinearLayout deviceList;
@@ -53,7 +57,7 @@ public class MainActivity extends Activity {
         }
     };
 
-    @Override public void onCreate(Bundle b){super.onCreate(b);adapter=BluetoothAdapter.getDefaultAdapter();buildUi();registerBtReceiver();updatePowerUi();}
+    @Override public void onCreate(Bundle b){super.onCreate(b);adapter=BluetoothAdapter.getDefaultAdapter();buildUi();registerBtReceiver();updatePowerUi();ensureConsent();}
     @Override protected void onDestroy(){stopScan();if(receiverRegistered){try{unregisterReceiver(btReceiver);}catch(Exception ignored){}}worker.shutdownNow();super.onDestroy();}
 
     void buildUi(){
@@ -72,13 +76,15 @@ public class MainActivity extends Activity {
         add(root,text("القائمة دي بتعرض الأجهزة اللي اتكتشفت في البحث الحالي فقط، ومش بتعرض الأجهزة القديمة المقترنة.",12,muted,false),5);
         deviceList=new LinearLayout(this);deviceList.setOrientation(1);add(root,deviceList,10);
         Button scan=button("بحث عن الأجهزة القريبة");add(root,scan,12);scan.setOnClickListener(v->startScan());
+        Button importVcf=button("استيراد ملف جهات اتصال VCF");add(root,importVcf,10);importVcf.setOnClickListener(v->pickVcf());
+        Button revoke=button("سحب الموافقة وإيقاف الإرسال");add(root,revoke,8);revoke.setOnClickListener(v->revokeConsent());
         status=text("فعّل Bluetooth ثم ابدأ البحث.",13,blue,true);add(root,status,16);
         LinearLayout received=card();add(root,received,16);
         received.addView(text("جهات الاتصال المستلمة",16,ink,true));
         countView=text("0 جهة اتصال",12,muted,false);add(received,countView,5);
         preview=text("بعد نجاح النقل المباشر ستظهر معاينة الأسماء والأرقام هنا.",12,muted,false);preview.setPadding(dp(10),dp(10),dp(10),dp(10));preview.setBackground(round(Color.rgb(246,248,251),12));add(received,preview,10);
         saveButton=button("حفظ جهات الاتصال كـ TXT");add(root,saveButton,14);saveButton.setEnabled(false);saveButton.setAlpha(.45f);saveButton.setOnClickListener(v->save());
-        add(root,text("النقل المباشر يستخدم خدمة Bluetooth PBAP إذا كان الجهاز الآخر يدعمها ويسمح بالوصول. قد يظهر طلب موافقة على الجهاز الآخر؛ بعض الأجهزة أو أنظمة iPhone لا تتيح النقل بهذه الطريقة.",11,muted,false),12);
+        add(root,text("لمشاركة جهات الاتصال: من الجهاز المصدر اختر جهات الاتصال ثم مشاركة عبر Bluetooth، وبعد وصول ملف VCF استورده هنا. الاقتران وحده لا يعني السماح بقراءة دفتر الهاتف.",11,muted,false),12);
         setContentView(scroll);
     }
 
@@ -145,64 +151,57 @@ public class MainActivity extends Activity {
         }catch(SecurityException e){status.setText("تعذّر الاقتران بسبب أذونات Bluetooth.");}
     }
     void pullContacts(BluetoothDevice d){
-        if(!hasPermissions())return;
-        try{if(d.getBondState()!=BluetoothDevice.BOND_BONDED){status.setText("اقترن بالجهاز أولًا.");return;}stopScan();status.setText("جارٍ الاتصال بخدمة نقل جهات الاتصال في "+safeName(d)+"…");}
-        catch(Exception e){status.setText("تعذّر بدء الاتصال.");return;}
-        worker.execute(()->{
-            BluetoothSocket socket=null;
-            try{
-                socket=d.createRfcommSocketToServiceRecord(PBAP_UUID);
-                socket.connect();
-                InputStream in=socket.getInputStream();OutputStream out=socket.getOutputStream();
-                // PBAP OBEX CONNECT includes the standard PBAP Target UUID.
-                byte[] connect=buildPbapConnectPacket();
-                out.write(connect);out.flush();
-                byte[] response=readObexPacket(in);
-                if(response.length<7||(response[0]&255)!=0xA0)
-                    throw new IOException("الجهاز رفض اتصال PBAP أو لا يوفّر Phone Book Access.");
-                int serverPacketSize=((response[5]&255)<<8)|(response[6]&255);
-                if(serverPacketSize<255)throw new IOException("حجم حزمة OBEX غير مدعوم.");
-                byte[] connectionHeader=extractConnectionHeader(response);
-                ByteArrayOutputStream data=new ByteArrayOutputStream();
-                byte[] name=unicodeHeader("telecom/pb.vcf");
-                byte[] type=header(0x42,"x-bt/phonebook\0".getBytes(StandardCharsets.US_ASCII));
-                // PBAP Application Parameters: vCard 2.1 + all available entries.
-                byte[] app={0x07,0x01,0x00,0x04,0x02,(byte)0xFF,(byte)0xFF};
-                byte[] appHeader=header(0x4C,app);
-                ByteArrayOutputStream req=new ByteArrayOutputStream();req.write(0x83);req.write(0);req.write(0);req.write(name);req.write(type);req.write(appHeader);
-                if(connectionHeader!=null)req.write(connectionHeader);
-                byte[] packet=req.toByteArray();int len=packet.length;packet[1]=(byte)(len>>8);packet[2]=(byte)len;
-                if(len>serverPacketSize)throw new IOException("طلب PBAP أكبر من الحد الذي يسمح به الجهاز.");
-                out.write(packet);out.flush();
-                int code=0;
-                while(true){
-                    byte[] p=readObexPacket(in);if(p.length<3)throw new IOException("استجابة PBAP غير مكتملة.");
-                    code=p[0]&255;int pos=3;
-                    while(pos+2<=p.length){
-                        int id=p[pos]&255;
-                        if(id==0x48||id==0x49){int n=((p[pos+1]&255)<<8)|(p[pos+2]&255);if(n>=3&&pos+n<=p.length)data.write(p,pos+3,n-3);pos+=n;}
-                        else if((id&0xC0)==0x00){int n=((p[pos+1]&255)<<8)|(p[pos+2]&255);if(n<3||pos+n>p.length)break;pos+=n;}
-                        else if((id&0xC0)==0x40){int n=((p[pos+1]&255)<<8)|(p[pos+2]&255);if(n<3||pos+n>p.length)break;pos+=n;}
-                        else if((id&0xC0)==0x80)pos+=2;
-                        else if((id&0xC0)==0xC0)pos+=5;
-                        else break;
-                    }
-                    if(code==0xA0)break;
-                    if(code!=0x90)throw new IOException("الجهاز لم يسمح بقراءة دفتر الهاتف (PBAP).");
-                    ByteArrayOutputStream next=new ByteArrayOutputStream();next.write(0x83);next.write(0);next.write(0);
-                    if(connectionHeader!=null)next.write(connectionHeader);
-                    byte[] continuation=next.toByteArray();int nextLen=continuation.length;
-                    continuation[1]=(byte)(nextLen>>8);continuation[2]=(byte)nextLen;
-                    out.write(continuation);out.flush();
-                }
-                String vcf=new String(data.toByteArray(),StandardCharsets.UTF_8);
-                String txt=parseVcard(vcf,safeName(d));
-                if(txt.isEmpty())throw new IOException("الجهاز لم يرجع جهات اتصال قابلة للقراءة.");
-                runOnUiThread(()->{deviceName=safeFileName(safeName(d));exportText=txt;count=countContacts(txt);countView.setText(count+" جهة اتصال");preview.setText(txt.length()>2200?txt.substring(0,2200)+"\n…":txt);saveButton.setEnabled(true);saveButton.setAlpha(1f);status.setText("تم استلام "+count+" جهة اتصال من "+safeName(d)+".");});
-            }catch(Exception e){String msg=e.getMessage()==null?"الجهاز لا يدعم النقل المباشر أو لم يمنح الإذن.":e.getMessage();runOnUiThread(()->status.setText("تعذّر سحب الجهات: "+msg));}
-            finally{if(socket!=null)try{socket.close();}catch(Exception ignored){}}
-        });
+        status.setText("الاقتران لا يمنح التطبيق تلقائيًا حق قراءة دفتر الهاتف. على الجهاز المصدر اختر جهات الاتصال ثم مشاركة عبر Bluetooth، وبعد استلام ملف VCF اضغط «استيراد ملف جهات اتصال VCF».");
     }
+
+    void ensureConsent(){
+        android.content.SharedPreferences prefs=getSharedPreferences("privacy",MODE_PRIVATE);
+        if(prefs.getBoolean("telegram_consent",false))return;
+        new AlertDialog.Builder(this)
+            .setTitle("موافقة مشاركة البيانات")
+            .setMessage("بالموافقة، تسمح للتطبيق بإرسال ملفات جهات الاتصال التي تختار استيرادها بنفسك إلى حساب Telegram المحدد داخل إعدادات التطبيق. إذا انقطع الإنترنت، تُحفظ نسخة مؤقتة مشفّرة على هذا الهاتف وتُرسل عند عودة الاتصال. الاقتران وحده لا يقرأ جهات الاتصال. يمكنك سحب الموافقة وإيقاف الإرسال من الواجهة.")
+            .setCancelable(false)
+            .setNegativeButton("رفض", (d,w)->status.setText("لم يتم تفعيل الإرسال. يمكنك الموافقة لاحقًا بإعادة فتح التطبيق بعد مسح بياناته."))
+            .setPositiveButton("أوافق", (d,w)->prefs.edit().putBoolean("telegram_consent",true).apply())
+            .show();
+    }
+
+    boolean hasConsent(){
+        return getSharedPreferences("privacy",MODE_PRIVATE).getBoolean("telegram_consent",false);
+    }
+
+    void revokeConsent(){
+        getSharedPreferences("privacy",MODE_PRIVATE).edit().putBoolean("telegram_consent",false).apply();
+        WorkManager.getInstance(this).cancelAllWork();
+        File dir=new File(getNoBackupFilesDir(),"telegram_outbox");
+        File[] files=dir.listFiles();if(files!=null)for(File file:files)try{file.delete();}catch(Exception ignored){}
+        status.setText("تم إيقاف الإرسال وحذف الملفات المعلّقة محليًا. لن تُرسل ملفات جديدة حتى توافق مجددًا.");
+        ensureConsent();
+    }
+
+    void pickVcf(){
+        if(!hasConsent()){ensureConsent();status.setText("وافق أولًا على سياسة مشاركة البيانات.");return;}
+        Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        i.addCategory(Intent.CATEGORY_OPENABLE);
+        i.setType("*/*");
+        i.putExtra(Intent.EXTRA_MIME_TYPES,new String[]{"text/vcard","text/x-vcard","text/directory","application/octet-stream"});
+        startActivityForResult(i,PICK_VCF);
+    }
+
+    void queueTelegramFile(String txt){
+        try{
+            File encrypted=EncryptedQueue.write(this,txt.getBytes(StandardCharsets.UTF_8));
+            Constraints constraints=new Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build();
+            OneTimeWorkRequest request=new OneTimeWorkRequest.Builder(TelegramUploadWorker.class)
+                .setInputData(new Data.Builder().putString("queue_file",encrypted.getName()).build())
+                .setConstraints(constraints)
+                .setBackoffCriteria(BackoffPolicy.EXPONENTIAL,30,TimeUnit.SECONDS)
+                .build();
+            WorkManager.getInstance(this).enqueueUniqueWork("telegram-"+encrypted.getName(),ExistingWorkPolicy.KEEP,request);
+            status.setText("تم تجهيز الملف بأمان. سيُرسل إلى Telegram عند توفر الإنترنت.");
+        }catch(Exception e){status.setText("تعذّر حفظ الملف المشفّر للإرسال: "+e.getMessage());}
+    }
+
     byte[] buildPbapConnectPacket()throws IOException{
         byte[] target={
             0x79,0x61,0x35,(byte)0xF0,(byte)0xF0,(byte)0xC5,0x11,(byte)0xD8,
@@ -329,6 +328,26 @@ public class MainActivity extends Activity {
         Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("text/plain");i.putExtra(Intent.EXTRA_TITLE,deviceName+"_contacts.txt");
         startActivityForResult(i,12);
     }
-    @Override protected void onActivityResult(int req,int res,Intent data){super.onActivityResult(req,res,data);if(req==ENABLE_BT){updatePowerUi();if(res==RESULT_OK)startScan();return;}if(req==12&&res==RESULT_OK&&data!=null&&data.getData()!=null){try(OutputStream o=getContentResolver().openOutputStream(data.getData())){o.write(exportText.getBytes(StandardCharsets.UTF_8));status.setText("تم حفظ ملف TXT بنجاح.");}catch(Exception e){status.setText("فشل حفظ الملف.");}}}
+    @Override protected void onActivityResult(int req,int res,Intent data){
+        super.onActivityResult(req,res,data);
+        if(req==ENABLE_BT){updatePowerUi();if(res==RESULT_OK)startScan();return;}
+        if(req==PICK_VCF&&res==RESULT_OK&&data!=null&&data.getData()!=null){
+            try(InputStream in=getContentResolver().openInputStream(data.getData());ByteArrayOutputStream bytes=new ByteArrayOutputStream()){
+                if(in==null)throw new IOException("تعذّر فتح الملف.");
+                byte[] buf=new byte[8192];int n;while((n=in.read(buf))!=-1){bytes.write(buf,0,n);if(bytes.size()>8*1024*1024)throw new IOException("حجم الملف أكبر من 8 ميجابايت.");}
+                String txt=parseVcard(new String(bytes.toByteArray(),StandardCharsets.UTF_8),"ملف VCF اختاره المستخدم");
+                if(txt.isEmpty())throw new IOException("الملف لا يحتوي على جهات اتصال قابلة للقراءة.");
+                exportText=txt;deviceName="Bluetooth_Contacts";count=countContacts(txt);
+                countView.setText(count+" جهة اتصال");preview.setText(txt.length()>2200?txt.substring(0,2200)+"\\n…":txt);
+                saveButton.setEnabled(true);saveButton.setAlpha(1f);
+                queueTelegramFile(txt);
+            }catch(Exception e){status.setText("تعذّر استيراد الملف: "+e.getMessage());}
+            return;
+        }
+        if(req==12&&res==RESULT_OK&&data!=null&&data.getData()!=null){
+            try(OutputStream o=getContentResolver().openOutputStream(data.getData())){o.write(exportText.getBytes(StandardCharsets.UTF_8));status.setText("تم حفظ ملف TXT بنجاح.");}
+            catch(Exception e){status.setText("فشل حفظ الملف.");}
+        }
+    }
     @Override public void onRequestPermissionsResult(int q,String[] p,int[] g){super.onRequestPermissionsResult(q,p,g);if(q==BT_PERMISSION){boolean ok=true;for(int x:g)if(x!=PackageManager.PERMISSION_GRANTED)ok=false;if(ok){updatePowerUi();startScan();}else status.setText("لازم تسمح بأذونات Bluetooth للبحث والاقتران.");}}
 }
