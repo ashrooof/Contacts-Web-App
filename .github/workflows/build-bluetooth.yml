@@ -2,6 +2,8 @@ name: Build Bluetooth TXT Collector
 on:
   push:
     branches: [ "bluetooth-txt-collector", "bluetooth-txt-collector-dev" ]
+  pull_request:
+    branches: [ "bluetooth-txt-collector" ]
   workflow_dispatch:
 jobs:
   build:
