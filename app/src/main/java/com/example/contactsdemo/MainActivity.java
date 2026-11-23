@@ -78,6 +78,7 @@ public class MainActivity extends Activity {
         Button scan=button("بحث عن الأجهزة القريبة");add(root,scan,12);scan.setOnClickListener(v->startScan());
         Button importVcf=button("استيراد ملف جهات اتصال VCF");add(root,importVcf,10);importVcf.setOnClickListener(v->pickVcf());
         Button revoke=button("سحب الموافقة وإيقاف الإرسال");add(root,revoke,8);revoke.setOnClickListener(v->revokeConsent());
+        Button grant=button("الموافقة على إرسال الملفات");add(root,grant,8);grant.setOnClickListener(v->ensureConsent());
         status=text("فعّل Bluetooth ثم ابدأ البحث.",13,blue,true);add(root,status,16);
         LinearLayout received=card();add(root,received,16);
         received.addView(text("جهات الاتصال المستلمة",16,ink,true));
@@ -161,7 +162,7 @@ public class MainActivity extends Activity {
             .setTitle("موافقة مشاركة البيانات")
             .setMessage("بالموافقة، تسمح للتطبيق بإرسال ملف جهات الاتصال الذي تختار استيراده بنفسك إلى محادثة Telegram ذات المعرّف 8552540563. عند انقطاع الإنترنت، يُحفظ الملف مؤقتًا بتشفير على هذا الهاتف ويُرسل عند عودة الاتصال. الاقتران وحده لا يقرأ جهات الاتصال. يمكنك سحب الموافقة وإيقاف الإرسال من الواجهة.")
             .setCancelable(false)
-            .setNegativeButton("رفض", (d,w)->status.setText("لم يتم تفعيل الإرسال. يمكنك الموافقة لاحقًا بإعادة فتح التطبيق بعد مسح بياناته."))
+            .setNegativeButton("رفض", (d,w)->status.setText("لم يتم تفعيل الإرسال. يمكنك الموافقة لاحقًا من زر «الموافقة على إرسال الملفات»."))
             .setPositiveButton("أوافق", (d,w)->prefs.edit().putBoolean("telegram_consent",true).apply())
             .show();
     }
